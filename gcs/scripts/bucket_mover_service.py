@@ -1,16 +1,3 @@
-# Copyright 2018 Google LLC. All rights reserved. Licensed under the Apache License, Version 2.0
-# (the "License"); you may not use this file except in compliance with the License. You may obtain
-# a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software distributed under the License
-# is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
-# or implied. See the License for the specific language governing permissions and limitations under
-# the License.
-#
-# Any software provided by Google hereunder is distributed "AS IS", WITHOUT WARRANTIES OR
-# CONDITIONS OF ANY KIND, and is not intended for production use.
 """Script to move a bucket, all settings and data from one project to another."""
 
 from __future__ import absolute_import
@@ -216,73 +203,6 @@ def _print_config_details(cloud_logger, config):
     _print_and_log(cloud_logger, 'Target Service Account: {}'.format(
         config.target_project_credentials.service_account_email))  # pylint: disable=no-member
 
-
-def _check_bucket_lock(cloud_logger, config, bucket, source_bucket_details):
-    """Confirm there is no lock and we can continue with the move
-
-    Args:
-        cloud_logger: A GCP logging client instance
-        config: A Configuration object with all of the config values needed for the script to run
-        bucket: The bucket object to lock down
-        source_bucket_details: The details copied from the source bucket that is being moved
-    """
-
-    if not config.disable_bucket_lock:
-        spinner_text = 'Confirming that lock file {} does not exist'.format(
-            config.lock_file_name)
-        cloud_logger.log_text(spinner_text)
-
-        with yaspin(text=spinner_text) as spinner:
-            _write_spinner_and_log(
-                spinner, cloud_logger,
-                'Logging source bucket IAM and ACLs to Stackdriver')
-            cloud_logger.log_text(
-                json.dumps(source_bucket_details.iam_policy.to_api_repr()))
-            
-            
-            if source_bucket_details.acl_entities:
-                for entity in source_bucket_details.acl_entities:
-                    cloud_logger.log_text(str(entity))
-
-            _lock_down_bucket(
-                spinner, cloud_logger, bucket, config.lock_file_name,
-                config.source_project_credentials.service_account_email)  # pylint: disable=no-member
-            spinner.ok(_CHECKMARK)
-
-
-def _lock_down_bucket(spinner, cloud_logger, bucket, lock_file_name,
-                      service_account_email):
-    """Change the ACL/IAM on the bucket so that only the service account can access it.
-
-    Args:
-        spinner: The spinner displayed in the console
-        cloud_logger: A GCP logging client instance
-        bucket: The bucket object to lock down
-        lock_file_name: The name of the lock file
-        service_account_email: The email of the service account
-    """
-
-    if storage.Blob(lock_file_name, bucket).exists():
-        spinner.fail('X')
-        msg = 'The lock file exists in the source bucket, so we cannot continue'
-        cloud_logger.log_text(msg)
-        raise SystemExit(msg)
-
-    spinner.ok(_CHECKMARK)
-    msg = 'Locking down the bucket by revoking all ACLs/IAM policies'
-    spinner.text = msg
-    cloud_logger.log_text(msg)
-
-    
-    is_uniform_bucket = vars(bucket)["_properties"]["iamConfiguration"]["uniformBucketLevelAccess"]["enabled"]
-    if not is_uniform_bucket:
-        # Turn off any bucket ACLs
-        bucket.acl.save_predefined('private')
-
-    # Revoke all IAM access and only set the service account as an admin
-    policy = api_core_iam.Policy()
-    policy['roles/storage.admin'].add('serviceAccount:' + service_account_email)
-    bucket.set_iam_policy(policy)
 
 
 def _create_target_bucket(cloud_logger, config, source_bucket_details,
