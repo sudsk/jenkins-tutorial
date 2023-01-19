@@ -122,33 +122,6 @@ def _check_log_values(cloud_logger,config):
         transfer_log_value=None
     return transfer_log_value
 
-
-def _rename_bucket(cloud_logger, config, source_bucket, source_bucket_details,
-                   sts_client,transfer_log_value):
-    """Main method for doing a bucket rename
-
-    This can also involve a move across projects.
-
-    Args:
-        cloud_logger: A GCP logging client instance
-        config: A Configuration object with all of the config values needed for the script to run
-        source_bucket: The bucket object for the original source bucket in the source project
-        source_bucket_details: The details copied from the source bucket that is being moved
-        sts_client: The STS client object to be used
-    """
-    target_bucket = _create_target_bucket(
-        cloud_logger, config, source_bucket_details, config.target_bucket_name)
-    sts_account_email = _assign_sts_permissions(cloud_logger, sts_client,
-                                                config, target_bucket)
-    _run_and_wait_for_sts_job(sts_client, config.target_project,
-                              config.bucket_name, config.target_bucket_name,
-                              cloud_logger,config,transfer_log_value)
-
-    _delete_empty_source_bucket(cloud_logger, source_bucket)
-    _remove_sts_permissions(cloud_logger, sts_account_email, config,
-                            config.target_bucket_name)
-
-
 def _move_bucket(cloud_logger, config, source_bucket, source_bucket_details,
                  sts_client,transfer_log_value):
     """Main method for doing a bucket move.
