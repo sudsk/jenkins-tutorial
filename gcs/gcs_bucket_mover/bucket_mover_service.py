@@ -47,8 +47,6 @@ def main(config, parsed_args, cloud_logger):
     source_bucket_details = bucket_details.BucketDetails(
         conf=parsed_args, source_bucket=source_bucket)
     transfer_log_value=_check_log_values(cloud_logger, config)
-    _check_bucket_lock(cloud_logger, config, source_bucket,
-                       source_bucket_details)
 
     sts_client = discovery.build(
         'storagetransfer', 'v1', credentials=config.target_project_credentials)
