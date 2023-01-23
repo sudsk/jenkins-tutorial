@@ -44,7 +44,7 @@ def main():
     _print_and_log(cloud_logger,
                    'Target Project: {}'.format(parsed_args.project_name))
     _print_and_log(cloud_logger,
-                   'Target Bucket: {}'.format(config.dataset_name))
+                   'Target Bucket: {}'.format(parsed_args.dataset_name))
     #_print_and_log(cloud_logger, 'Target Service Account: {}'.format(
     #    config.target_project_credentials.service_account_email))
 
