@@ -1,0 +1,31 @@
+pipeline {
+    agent any
+    stages 
+    {
+        stage('Start') {
+            steps {
+                echo 'Hello'
+                writeFile file: 'buckets.txt', text: params.BUCKETS
+                script{
+                    def filePath = readFile "${WORKSPACE}/buckets.txt"  
+                    def lines = filePath.readLines() 
+                    def branches = [:]
+                    for (line in lines) { 
+                        def index = line
+                        branches["branch-${line}"] = {
+                            build job: 'gcs-bucket-mover', parameters: [
+                                string(name: 'param1', value:"${index}")]
+                        }
+                    }
+                    parallel branches
+                }
+            }
+        }
+        stage('End') {
+            steps {
+                echo 'Bye'
+            }
+        }
+    }
+}
+ 
