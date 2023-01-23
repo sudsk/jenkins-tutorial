@@ -34,7 +34,7 @@ def main(config, parsed_args, cloud_logger):
     #config = configuration.Configuration.from_conf(parsed_args)
 
     # Create the cloud logging client that will be passed to all other modules.
-    cloud_logger = logging.Client.logger('bq-dataset-mover')  # pylint: disable=no-member
+    cloud_logger = logging.Client.logger(name="bq-dataset-mover")  # pylint: disable=no-member
 
     cloud_logger.log_text("Starting GCS Bucket Mover")
     _print_config_details(cloud_logger, config)
