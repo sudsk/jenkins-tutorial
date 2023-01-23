@@ -51,7 +51,7 @@ def main(config, parsed_args, cloud_logger):
     #    'storagetransfer', 'v1', credentials=config.target_project_credentials)
 
     #_move_bucket(cloud_logger, config, source_bucket, source_bucket_details,
-                 sts_client,transfer_log_value)
+    #             sts_client,transfer_log_value)
 
     cloud_logger.log_text('Completed GCS Bucket Mover')
 
