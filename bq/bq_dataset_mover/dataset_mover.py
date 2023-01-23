@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """Script to move a bucket, all settings and data from one project to another."""
 
 from __future__ import absolute_import
