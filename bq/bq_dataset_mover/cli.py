@@ -9,9 +9,9 @@ import textwrap
 import configargparse
 import yaml
 
-from bq_bucket_mover import bq_mover_service
-from bq_bucket_mover import bq_mover_tester
-from bq_bucket_mover import configuration
+from bq_dataset_mover import dataset_mover_service
+from bq_dataset_mover import dataset_mover_tester
+from bq_dataset_mover import configuration
 
 
 def _get_parsed_args():
