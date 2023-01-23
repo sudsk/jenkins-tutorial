@@ -75,7 +75,7 @@ def _get_parsed_args():
     parser.add_argument(
         '-d','--dataset_name', help='The name of the dataset to be moved.')
     parser.add_argument(
-        '-p','project_name',
+        '-p','--project_name',
         help='The project name that the dataset is currently in.')
     parser.add_argument(
         '-s','--gcp_project_service_account_key',
