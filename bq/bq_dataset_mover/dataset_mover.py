@@ -8,6 +8,7 @@ import json
 from time import sleep
 from retrying import retry
 from yaspin import yaspin
+import argparse
 
 from google.api_core import iam as api_core_iam
 from google.cloud import exceptions
@@ -20,7 +21,27 @@ from gcs_bucket_mover import bucket_details
 from gcs_bucket_mover import sts_job_status
 
 _CHECKMARK = u'\u2713'.encode('utf8')
-        
+
+def _get_parsed_args():
+    """Parses command line arguments 
+    Returns:
+        A "Namespace" object. See argparse.ArgumentParser.parse_args() for more details.
+    """
+
+    parser = argparse.ArgumentParser(
+        description=
+        'Moves a BQ dataset within the project')
+    parser.add_argument(
+        '-d','--dataset_name', help='The name of the dataset to be moved.')
+    parser.add_argument(
+        '-p','project_name',
+        help='The project name that the dataset is currently in.')
+    parser.add_argument(
+        '-s','--gcp_project_service_account_key',
+        help='The location for service account key json file from the project'
+    )
+    return parser.parse_args()
+
 def main(config, parsed_args, cloud_logger):
     """Main entry point for the dataset mover tool
 
