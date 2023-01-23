@@ -8,6 +8,7 @@ import textwrap
 
 import configargparse
 import yaml
+import google.cloud.logging
 
 from bq_dataset_mover import dataset_mover_service
 from bq_dataset_mover import dataset_mover_tester
@@ -201,7 +202,9 @@ def main():
 
     # Create the cloud logging client that will be passed to all other modules.
     cloud_logger = config.target_logging_client.logger('gcs-bucket-mover')  # pylint: disable=no-member
-
+    log_client = google.cloud.logging.Client()
+    log_client.setup_logging()
+    
     if parsed_args.test:
         test_bucket_name = bucket_mover_tester.set_up_test_bucket(
             config, parsed_args)
