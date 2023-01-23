@@ -20,7 +20,7 @@ from google.cloud.storage import iam
 from googleapiclient import discovery
 from google.oauth2 import service_account
 
-def main(config, parsed_args, cloud_logger):
+def main():
     """Main entry point for the dataset mover tool
 
     Args:
