@@ -15,6 +15,7 @@ from google.api_core import iam as api_core_iam
 from google.cloud import exceptions
 from google.cloud import pubsub
 from google.cloud import storage
+from google.cloud import bigquery
 from google.cloud import logging
 from google.cloud.storage import iam
 from googleapiclient import discovery
@@ -24,9 +25,9 @@ def main():
     """Main entry point for the dataset mover tool
 
     Args:
-        config: A Configuration object with all of the config values needed for the script to run
-        parsed_args: the configargparser parsing of command line options
-        cloud_logger: A GCP logging client instance
+        project_name: GCP Project Name
+        dataset_name: BigQuery Dataset Name which have to be moved
+        service_account_key: Path and Name of the service account key json file
     """
     """Get passed in args and run either a test run or an actual move"""
     args = _get_parsed_args()
@@ -46,8 +47,10 @@ def main():
     _print_and_log(cloud_logger, 'Dataset: {}'.format(dataset_name))
     _print_and_log(cloud_logger, 'Service Account: {}'.format(sa_email))
 
-    #source_bucket = config.source_storage_client.lookup_bucket(  
-    #    config.bucket_name)
+    source_bq_client = bigquery.Client(
+                credentials=sa_credentials, project=project_name)
+    source_dataset = source_bq_client.Dataset(  
+        project_name+'.'+dataset_name)
 
     #if source_bucket is None:
     #    msg = 'The source bucket does not exist, so we cannot continue'
