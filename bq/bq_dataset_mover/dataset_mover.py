@@ -14,6 +14,7 @@ from google.api_core import iam as api_core_iam
 from google.cloud import exceptions
 from google.cloud import pubsub
 from google.cloud import storage
+from google.cloud import logging
 from google.cloud.storage import iam
 from googleapiclient import discovery
 
