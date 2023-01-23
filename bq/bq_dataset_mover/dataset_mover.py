@@ -22,26 +22,9 @@ from gcs_bucket_mover import sts_job_status
 
 _CHECKMARK = u'\u2713'.encode('utf8')
 
-def _get_parsed_args():
-    """Parses command line arguments 
-    Returns:
-        A "Namespace" object. See argparse.ArgumentParser.parse_args() for more details.
-    """
-
-    parser = argparse.ArgumentParser(
-        description=
-        'Moves a BQ dataset within the project')
-    parser.add_argument(
-        '-d','--dataset_name', help='The name of the dataset to be moved.')
-    parser.add_argument(
-        '-p','project_name',
-        help='The project name that the dataset is currently in.')
-    parser.add_argument(
-        '-s','--gcp_project_service_account_key',
-        help='The location for service account key json file from the project'
-    )
-    return parser.parse_args()
-
+if __name__ == '__main__':
+    main()
+    
 def main(config, parsed_args, cloud_logger):
     """Main entry point for the dataset mover tool
 
@@ -50,6 +33,15 @@ def main(config, parsed_args, cloud_logger):
         parsed_args: the configargparser parsing of command line options
         cloud_logger: A GCP logging client instance
     """
+    """Get passed in args and run either a test run or an actual move"""
+    parsed_args = _get_parsed_args()
+
+    # Load the config values set in the config file and create the storage clients.
+    #config = configuration.Configuration.from_conf(parsed_args)
+
+    # Create the cloud logging client that will be passed to all other modules.
+    cloud_logger = config.target_logging_client.logger('bq-dataset-mover')  # pylint: disable=no-member
+
     cloud_logger.log_text("Starting GCS Bucket Mover")
     _print_config_details(cloud_logger, config)
 
@@ -75,6 +67,27 @@ def main(config, parsed_args, cloud_logger):
     #             sts_client,transfer_log_value)
 
     cloud_logger.log_text('Completed GCS Bucket Mover')
+
+    
+def _get_parsed_args():
+    """Parses command line arguments 
+    Returns:
+        A "Namespace" object. See argparse.ArgumentParser.parse_args() for more details.
+    """
+
+    parser = argparse.ArgumentParser(
+        description=
+        'Moves a BQ dataset within the project')
+    parser.add_argument(
+        '-d','--dataset_name', help='The name of the dataset to be moved.')
+    parser.add_argument(
+        '-p','project_name',
+        help='The project name that the dataset is currently in.')
+    parser.add_argument(
+        '-s','--gcp_project_service_account_key',
+        help='The location for service account key json file from the project'
+    )
+    return parser.parse_args()
 
 def _check_log_values(cloud_logger,config):
     log_action_list = ['COPY', 'DELETE', 'FIND']
