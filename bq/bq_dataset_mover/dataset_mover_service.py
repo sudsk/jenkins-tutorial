@@ -20,9 +20,6 @@ from gcs_bucket_mover import bucket_details
 from gcs_bucket_mover import sts_job_status
 
 _CHECKMARK = u'\u2713'.encode('utf8')
-
-if __name__ == “__main__”:
-         main()
         
 def main(config, parsed_args, cloud_logger):
     """Main entry point for the dataset mover tool
