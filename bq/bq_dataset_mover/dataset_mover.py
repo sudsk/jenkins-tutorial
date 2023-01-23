@@ -961,4 +961,4 @@ def _write_spinner_and_log(spinner, cloud_logger, message):
 
 
 if __name__ == '__main__':
-    main(None, None, None)
+    main()
