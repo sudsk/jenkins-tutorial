@@ -18,6 +18,7 @@ from google.cloud import storage
 from google.cloud import logging
 from google.cloud.storage import iam
 from googleapiclient import discovery
+from google.oauth2 import service_account
 
 def main(config, parsed_args, cloud_logger):
     """Main entry point for the dataset mover tool
@@ -32,14 +33,17 @@ def main(config, parsed_args, cloud_logger):
 
     # Load the config values set in the config file and create the storage clients.
     #config = configuration.Configuration.from_conf(parsed_args)
-
+    json_path = parsed_args.service_account_key
+    sa_credentials = service_account.Credentials.from_service_account_file(json_path)
+    
     # Create the cloud logging client that will be passed to all other modules.
-    cloud_logger = logging.Client.logger(name="bq-dataset-mover")  # pylint: disable=no-member
+    logging_client = logging.Client(credentials=sa_credentials, project=parsed_args.project_name)
+    cloud_logger = logging_client.logger("bq-dataset-mover")  
 
     cloud_logger.log_text("Starting GCS Bucket Mover")
     _print_config_details(cloud_logger, config)
 
-    #source_bucket = config.source_storage_client.lookup_bucket(  # pylint: disable=no-member
+    #source_bucket = config.source_storage_client.lookup_bucket(  
     #    config.bucket_name)
 
     #if source_bucket is None:
@@ -78,7 +82,7 @@ def _get_parsed_args():
         '-p','--project_name',
         help='The project name that the dataset is currently in.')
     parser.add_argument(
-        '-s','--gcp_project_service_account_key',
+        '-s','--service_account_key',
         help='The location for service account key json file from the project'
     )
     return parser.parse_args()
