@@ -47,9 +47,9 @@ def main():
     _print_and_log(cloud_logger, 'Dataset: {}'.format(dataset_name))
     _print_and_log(cloud_logger, 'Service Account: {}'.format(sa_email))
 
-    source_bq_client = bigquery.Client(
+    bq_client = bigquery.Client(
                 credentials=sa_credentials, project=project_name)
-    source_dataset = source_bq_client.Dataset(  
+    source_dataset = bq_client.get_dataset(  
         project_name+'.'+dataset_name)
 
     #if source_bucket is None:
