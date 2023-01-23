@@ -21,9 +21,11 @@ from gcs_bucket_mover import sts_job_status
 
 _CHECKMARK = u'\u2713'.encode('utf8')
 
-
+if __name__ == “__main__”:
+         main()
+        
 def main(config, parsed_args, cloud_logger):
-    """Main entry point for the bucket mover tool
+    """Main entry point for the dataset mover tool
 
     Args:
         config: A Configuration object with all of the config values needed for the script to run
@@ -33,25 +35,25 @@ def main(config, parsed_args, cloud_logger):
     cloud_logger.log_text("Starting GCS Bucket Mover")
     _print_config_details(cloud_logger, config)
 
-    source_bucket = config.source_storage_client.lookup_bucket(  # pylint: disable=no-member
-        config.bucket_name)
+    #source_bucket = config.source_storage_client.lookup_bucket(  # pylint: disable=no-member
+    #    config.bucket_name)
 
-    if source_bucket is None:
-        msg = 'The source bucket does not exist, so we cannot continue'
-        cloud_logger.log_text(msg)
-        raise SystemExit(msg)
+    #if source_bucket is None:
+    #    msg = 'The source bucket does not exist, so we cannot continue'
+    #    cloud_logger.log_text(msg)
+    #    raise SystemExit(msg)
 
     # Get copies of all of the source bucket's IAM, ACLs and settings so they
     # can be copied over to the target project bucket; details are retrievable
     # only if the corresponding feature is enabled in the configuration
-    source_bucket_details = bucket_details.BucketDetails(
-        conf=parsed_args, source_bucket=source_bucket)
-    transfer_log_value=_check_log_values(cloud_logger, config)
+    #source_bucket_details = bucket_details.BucketDetails(
+    #    conf=parsed_args, source_bucket=source_bucket)
+    #transfer_log_value=_check_log_values(cloud_logger, config)
 
-    sts_client = discovery.build(
-        'storagetransfer', 'v1', credentials=config.target_project_credentials)
+    #sts_client = discovery.build(
+    #    'storagetransfer', 'v1', credentials=config.target_project_credentials)
 
-    _move_bucket(cloud_logger, config, source_bucket, source_bucket_details,
+    #_move_bucket(cloud_logger, config, source_bucket, source_bucket_details,
                  sts_client,transfer_log_value)
 
     cloud_logger.log_text('Completed GCS Bucket Mover')
@@ -116,8 +118,8 @@ def _check_log_values(cloud_logger,config):
         transfer_log_value=None
     return transfer_log_value
 
-def _move_bucket(cloud_logger, config, source_bucket, source_bucket_details,
-                 sts_client,transfer_log_value):
+def _move_dataset(cloud_logger, config, source_dataset, source_dataset_details,
+                 bqdts_client,transfer_log_value):
     """Main method for doing a bucket move.
 
     This flow does not include a rename, the target bucket will have the same
@@ -128,11 +130,11 @@ def _move_bucket(cloud_logger, config, source_bucket, source_bucket_details,
         config: A Configuration object with all of the config values needed for the script to run
         source_bucket: The bucket object for the original source bucket in the source project
         source_bucket_details: The details copied from the source bucket that is being moved
-        sts_client: The STS client object to be used
+        bqdts_client: The BQ DTS client object to be used
     """
     target_temp_bucket = _create_target_bucket(
         cloud_logger, config, source_bucket_details, config.temp_bucket_name)
-    sts_account_email = _assign_sts_permissions(cloud_logger, sts_client,
+    bqdts_account_email = _assign_bqdts_permissions(cloud_logger, sts_client,
                                                 config, target_temp_bucket)
     _run_and_wait_for_sts_job(sts_client, config.target_project,
                               config.bucket_name, config.temp_bucket_name,
