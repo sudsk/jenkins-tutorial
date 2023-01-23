@@ -30,7 +30,7 @@ def main(config, parsed_args, cloud_logger):
     """
     """Get passed in args and run either a test run or an actual move"""
     parsed_args = _get_parsed_args()
-
+    
     # Load the config values set in the config file and create the storage clients.
     #config = configuration.Configuration.from_conf(parsed_args)
     json_path = parsed_args.service_account_key
@@ -41,7 +41,12 @@ def main(config, parsed_args, cloud_logger):
     cloud_logger = logging_client.logger("bq-dataset-mover")  
 
     cloud_logger.log_text("Starting GCS Bucket Mover")
-    _print_config_details(cloud_logger, config)
+    _print_and_log(cloud_logger,
+                   'Target Project: {}'.format(parsed_args.project_name))
+    _print_and_log(cloud_logger,
+                   'Target Bucket: {}'.format(config.dataset_name))
+    #_print_and_log(cloud_logger, 'Target Service Account: {}'.format(
+    #    config.target_project_credentials.service_account_email))
 
     #source_bucket = config.source_storage_client.lookup_bucket(  
     #    config.bucket_name)
@@ -180,28 +185,6 @@ def _move_dataset(cloud_logger, config, source_dataset, source_dataset_details,
     _delete_empty_temp_bucket(cloud_logger, target_temp_bucket)
     _remove_sts_permissions(cloud_logger, sts_account_email, config,
                             config.bucket_name)
-
-
-def _print_config_details(cloud_logger, config):
-    """Print out the pertinent project/bucket details
-
-    Args:
-        cloud_logger: A GCP logging client instance
-        config: A Configuration object with all of the config values needed for the script to run
-    """
-    _print_and_log(cloud_logger,
-                   'Source Project: {}'.format(config.source_project))
-    _print_and_log(cloud_logger, 'Source Bucket: {}'.format(config.bucket_name))
-    _print_and_log(cloud_logger, 'Source Service Account: {}'.format(
-        config.source_project_credentials.service_account_email))  # pylint: disable=no-member
-    _print_and_log(cloud_logger,
-                   'Target Project: {}'.format(config.target_project))
-    _print_and_log(cloud_logger,
-                   'Target Bucket: {}'.format(config.target_bucket_name))
-    _print_and_log(cloud_logger, 'Target Service Account: {}'.format(
-        config.target_project_credentials.service_account_email))  # pylint: disable=no-member
-
-
 
 def _create_target_bucket(cloud_logger, config, source_bucket_details,
                           bucket_name):
