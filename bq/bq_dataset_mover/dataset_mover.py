@@ -29,24 +29,22 @@ def main():
         cloud_logger: A GCP logging client instance
     """
     """Get passed in args and run either a test run or an actual move"""
-    parsed_args = _get_parsed_args()
+    args = _get_parsed_args()
+    project_name = args.project_name
+    dataset_name = args.dataset_name
+    service_account_key = args.service_account_key
     
-    # Load the config values set in the config file and create the storage clients.
-    #config = configuration.Configuration.from_conf(parsed_args)
-    json_path = parsed_args.service_account_key
-    sa_credentials = service_account.Credentials.from_service_account_file(json_path)
+    sa_credentials = service_account.Credentials.from_service_account_file(service_account_key)
+    sa_email = sa_credentials.service_account_email
     
     # Create the cloud logging client that will be passed to all other modules.
-    logging_client = logging.Client(credentials=sa_credentials, project=parsed_args.project_name)
+    logging_client = logging.Client(credentials=sa_credentials, project = project_name)
     cloud_logger = logging_client.logger("bq-dataset-mover")  
 
-    cloud_logger.log_text("Starting GCS Bucket Mover")
-    _print_and_log(cloud_logger,
-                   'Target Project: {}'.format(parsed_args.project_name))
-    _print_and_log(cloud_logger,
-                   'Target Bucket: {}'.format(parsed_args.dataset_name))
-    #_print_and_log(cloud_logger, 'Target Service Account: {}'.format(
-    #    config.target_project_credentials.service_account_email))
+    cloud_logger.log_text("Starting BQ Dataset Mover")
+    _print_and_log(cloud_logger, 'Project: {}'.format(project_name))
+    _print_and_log(cloud_logger, 'Dataset: {}'.format(dataset_name))
+    _print_and_log(cloud_logger, 'Service Account: {}'.format(sa_email))
 
     #source_bucket = config.source_storage_client.lookup_bucket(  
     #    config.bucket_name)
@@ -69,7 +67,7 @@ def main():
     #_move_bucket(cloud_logger, config, source_bucket, source_bucket_details,
     #             sts_client,transfer_log_value)
 
-    cloud_logger.log_text('Completed GCS Bucket Mover')
+    cloud_logger.log_text('Completed BQ Dataset Mover')
 
     
 def _get_parsed_args():
