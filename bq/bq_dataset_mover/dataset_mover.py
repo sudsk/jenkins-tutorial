@@ -139,11 +139,6 @@ def _create_target_dataset(cloud_logger, project_id, source_dataset, temp_datase
     
     return target_dataset
 
-@retry(
-    retry_on_result=_retry_if_false,
-    wait_exponential_multiplier=10000,
-    wait_exponential_max=120000,
-    stop_max_attempt_number=10)
 def _run_and_wait_for_bq_dts_job (bq_dts_client, project_id, source_dataset, temp_dataset_name, cloud_logger):
     #(sts_client, target_project, source_bucket_name, sink_bucket_name, cloud_logger,config,transfer_log_value):
     """Kick off the BQ DTS job and wait for it to complete. Retry if it fails.
