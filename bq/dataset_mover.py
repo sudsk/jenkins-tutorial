@@ -581,7 +581,7 @@ class DatasetDetails(object):
 
         # These properties can be skipped with cmd line params, so use the property setters to
         # make the checks
-        self.iam_policy = source_dataset.get_iam_policy()
+        #self.iam_policy = source_dataset.get_iam_policy()
 
     @property
     def iam_policy(self):
