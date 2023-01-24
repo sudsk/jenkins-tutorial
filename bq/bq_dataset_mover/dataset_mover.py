@@ -13,11 +13,8 @@ import argparse
 
 from google.api_core import iam as api_core_iam
 from google.cloud import exceptions
-from google.cloud import pubsub
-from google.cloud import storage
 from google.cloud import bigquery
 from google.cloud import logging
-from google.cloud.storage import iam
 from googleapiclient import discovery
 from google.oauth2 import service_account
 
@@ -52,13 +49,13 @@ def main():
     source_dataset = bq_client.get_dataset(  
         project_name+'.'+dataset_name)
 
-    #if source_bucket is None:
-    #    msg = 'The source bucket does not exist, so we cannot continue'
-    #    cloud_logger.log_text(msg)
-    #    raise SystemExit(msg)
+    if source_dataset is None:
+        msg = 'The source dataset does not exist, so we cannot continue'
+        cloud_logger.log_text(msg)
+        raise SystemExit(msg)
 
-    # Get copies of all of the source bucket's IAM, ACLs and settings so they
-    # can be copied over to the target project bucket; details are retrievable
+    # Get copies of all of the source dataset's IAM, and settings so they
+    # can be copied over to the target dataset; details are retrievable
     # only if the corresponding feature is enabled in the configuration
     #source_bucket_details = bucket_details.BucketDetails(
     #    conf=parsed_args, source_bucket=source_bucket)
@@ -67,7 +64,7 @@ def main():
     #sts_client = discovery.build(
     #    'storagetransfer', 'v1', credentials=config.target_project_credentials)
 
-    #_move_bucket(cloud_logger, config, source_bucket, source_bucket_details,
+    _move_bucket(cloud_logger, config, source_bucket, source_bucket_details,
     #             sts_client,transfer_log_value)
 
     cloud_logger.log_text('Completed BQ Dataset Mover')
