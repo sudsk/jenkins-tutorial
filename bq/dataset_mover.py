@@ -42,9 +42,9 @@ def main():
     cloud_logger = logging_client.logger("bq-dataset-mover")  
 
     _print_and_log(cloud_logger, "Starting BQ Dataset Mover")
-    _print_and_log(cloud_logger, ' Project: {}'.format(project_id))
-    _print_and_log(cloud_logger, ' Dataset: {}'.format(dataset_name))
-    _print_and_log(cloud_logger, ' Service Account: {}'.format(sa_email))
+    _print_and_log(cloud_logger, 'Project: {}'.format(project_id))
+    _print_and_log(cloud_logger, 'Dataset: {}'.format(dataset_name))
+    _print_and_log(cloud_logger, 'Service Account: {}'.format(sa_email))
 
     bq_client = bigquery.Client(
                 credentials=sa_credentials, project=project_id)
@@ -64,7 +64,7 @@ def main():
     source_dataset_details = DatasetDetails(
         source_dataset=source_dataset)
     
-    _print_and_log(cloud_logger, "  Dataset details found and set")
+    _print_and_log(cloud_logger, "Dataset details found and set")
     
     bq_dts_client = bigquery_datatransfer_v1.DataTransferServiceClient(credentials=sa_credentials)
 
@@ -143,8 +143,8 @@ def _reconcile_datasets(cloud_logger, project_id, first_dataset, second_dataset,
     Returns:
         The dataset object that has been created in BQ
     """
-    _print_and_log(cloud_logger, '  Starting reconciliation between {} and {}'.format(first_dataset,second_dataset))
-    _print_and_log(cloud_logger, '  Query dataset {} metrics in project {}'.format(first_dataset, project_id))
+    _print_and_log(cloud_logger, 'Starting reconciliation between {} and {}'.format(first_dataset,second_dataset))
+    _print_and_log(cloud_logger, 'Query dataset {} metrics in project {}'.format(first_dataset, project_id))
     query_job_first_dataset = bq_client.query(
         """
         SELECT COUNT(table_id) as table_count, SUM(row_count) total_rows, SUM(size_bytes) AS total_size 
@@ -156,11 +156,11 @@ def _reconcile_datasets(cloud_logger, project_id, first_dataset, second_dataset,
         first_dataset_total_rows = row.total_rows
         first_dataset_total_size = row.total_size
         
-    _print_and_log(cloud_logger, "  {} results = [table_count : {}, total_rows : {}, total_size : {}]"
+    _print_and_log(cloud_logger, "{} results = [table_count : {}, total_rows : {}, total_size : {}]"
           .format(first_dataset,str(first_dataset_table_count),str(first_dataset_total_rows),str(first_dataset_total_size))
          )
      
-    _print_and_log(cloud_logger, '  Query dataset {} metrics in project {}'.format(second_dataset, project_id))
+    _print_and_log(cloud_logger, 'Query dataset {} metrics in project {}'.format(second_dataset, project_id))
     query_job_second_dataset = bq_client.query(
         """
         SELECT COUNT(table_id) as table_count, SUM(row_count) total_rows, SUM(size_bytes) AS total_size 
@@ -172,17 +172,17 @@ def _reconcile_datasets(cloud_logger, project_id, first_dataset, second_dataset,
         second_dataset_total_rows = row.total_rows
         second_dataset_total_size = row.total_size
         
-    _print_and_log(cloud_logger, "  {} results = [table_count : {}, total_rows : {}, total_size : {}]"
+    _print_and_log(cloud_logger, "{} results = [table_count : {}, total_rows : {}, total_size : {}]"
           .format(second_dataset,str(second_dataset_table_count),str(second_dataset_total_rows),str(second_dataset_total_size))
          )
     
     if (first_dataset_table_count == second_dataset_table_count and 
         first_dataset_total_rows == second_dataset_total_rows and
         first_dataset_total_size == second_dataset_total_size):
-        _print_and_log(cloud_logger,'  Reconciliation complete')
+        _print_and_log(cloud_logger,'Reconciliation complete')
         return
     else:
-        msg = '  Reconciliation failed!'
+        msg = 'Reconciliation failed!'
         _print_and_log(cloud_logger,msg)
         raise SystemExit(msg)
     
@@ -199,11 +199,11 @@ def _create_target_dataset(cloud_logger, project_id, source_dataset, temp_datase
         The dataset object that has been created in BQ
     """
 
-    _print_and_log(cloud_logger,'  Creating temp dataset {} in project {}'.format(temp_dataset_name, project_id))
+    _print_and_log(cloud_logger,'Creating temp dataset {} in project {}'.format(temp_dataset_name, project_id))
     
     target_dataset = _create_dataset(cloud_logger, project_id, temp_dataset_name, bq_client)
     
-    _print_and_log(cloud_logger,'  Dataset {} created in target project {}'.format(temp_dataset_name, project_id))
+    _print_and_log(cloud_logger,'Dataset {} created in target project {}'.format(temp_dataset_name, project_id))
     
     return target_dataset
 
@@ -225,11 +225,11 @@ def _run_and_wait_for_bq_dts_job (bq_dts_client, project_id, source_dataset, tem
     # Note that this routine is in a @retry decorator, so non-True exits
     # and unhandled exceptions will trigger a retry.
 
-    _print_and_log(cloud_logger,' Moving from dataset {} to {}'.format(source_dataset, temp_dataset_name))
-    _print_and_log(cloud_logger,' Creating BQ DTS job')
+    _print_and_log(cloud_logger,'Moving from dataset {} to {}'.format(source_dataset, temp_dataset_name))
+    _print_and_log(cloud_logger,'Creating BQ DTS job')
     bq_dts_job_name = _execute_bq_dts_job(bq_dts_client, project_id,source_dataset, temp_dataset_name, cloud_logger)
     
-    print("  bq_dts_job_name: {}".format(bq_dts_job_name))
+    print("bq_dts_job_name: {}".format(bq_dts_job_name))
 
     # Check every 10 seconds until DTS job is complete
     while True:
@@ -283,7 +283,7 @@ def _execute_bq_dts_job(bq_dts_client, project_id, source_dataset, temp_dataset_
         transfer_config=transfer_config,
     )
     
-    _print_and_log(cloud_logger," Created transfer config: {transfer_config_response.name}")
+    _print_and_log(cloud_logger,"Created transfer config: {transfer_config_response.name}")
     now = time()
     seconds = int(now)
     nanos = int((now - seconds) * 10**9)
@@ -291,7 +291,7 @@ def _execute_bq_dts_job(bq_dts_client, project_id, source_dataset, temp_dataset_
     
     transfer_runs = bq_dts_client.start_manual_transfer_runs({"parent": transfer_config_response.name, "requested_run_time": start_time})
     
-    return transfer_runs
+    return transfer_runs.name
 
 def _delete_empty_source_bucket(cloud_logger, source_bucket):
     """Delete the empty source bucket
