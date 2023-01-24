@@ -107,6 +107,7 @@ def _move_dataset(cloud_logger, project_id, source_dataset, bq_client, bq_dts_cl
     #target_temp_dataset = _create_target_dataset(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client)
     
     #_run_and_wait_for_bq_dts_job(bq_dts_client, project_id, source_dataset, temp_dataset_name, cloud_logger)
+    _reconcile_source_and_temp_datasets(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client)
     """
     _delete_empty_source_bucket(cloud_logger, source_bucket)
     _recreate_source_bucket(cloud_logger, config, source_bucket_details)
@@ -120,7 +121,28 @@ def _move_dataset(cloud_logger, project_id, source_dataset, bq_client, bq_dts_cl
     _remove_sts_permissions(cloud_logger, bq_dts_account_email, config,
                             config.bucket_name)
     """
-        
+
+def _reconcile_source_and_temp_datasets(cloud_logger, project_id, first_dataset, second_dataset, bq_client):
+    """Creates the temp dataset in the target project
+
+    Args:
+        cloud_logger: A GCP logging client instance
+        project_id: A Configuration object with all of the config values needed for the script to run
+        source_dataset: The details copied from the source bucket that is being moved
+        temp_dataset_name: The name of the bucket to create
+
+    Returns:
+        The dataset object that has been created in BQ
+    """
+    cloud_logger.log_text('Query dataset {} in project {} for no of tables, total no of rows, and total size'.format(first_dataset, project_id))
+    query_job_first_dataset = client.query(
+        "
+        SELECT COUNT(table_id) as table_count, SUM(row_count) total_rows, SUM(size_bytes) AS total_size 
+        FROM `"+first_dataset+".__TABLES__`"
+    )
+    results = query_job_first_dataset.result()
+    print("results = "+ results)
+    
 def _create_target_dataset(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client):
     """Creates the temp dataset in the target project
 
