@@ -290,7 +290,7 @@ def _create_dataset (cloud_logger, project_id, temp_dataset_name, bq_client):
         The dataset object that has been created in GCS
     """
     
-    dataset_id = project_id + "." temp_dataset_name
+    dataset_id = project_id + "." + temp_dataset_name
 
     # Construct a full Dataset object to send to the API.
     dataset = bq_client.Dataset(dataset_id)
