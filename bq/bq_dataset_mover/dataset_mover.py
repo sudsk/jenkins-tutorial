@@ -293,7 +293,7 @@ def _create_dataset (cloud_logger, project_id, temp_dataset_name, bq_client):
     dataset_id = project_id + "." + temp_dataset_name
 
     # Construct a full Dataset object to send to the API.
-    dataset = bq_client.Dataset(dataset_id)
+    dataset = bigquery.Dataset(dataset_id)
 
     # TODO(developer): Specify the geographic location where the dataset should reside.
     dataset.location = "asia-east2"
@@ -301,7 +301,7 @@ def _create_dataset (cloud_logger, project_id, temp_dataset_name, bq_client):
     # Send the dataset to the API for creation, with an explicit timeout.
     # Raises google.api_core.exceptions.Conflict if the Dataset already exists within the project.
     
-    dataset = client.create_dataset(dataset, timeout=30)  # Make an API request.
+    dataset = bq_client.create_dataset(dataset, timeout=30)  # Make an API request.
     
     return dataset
 
