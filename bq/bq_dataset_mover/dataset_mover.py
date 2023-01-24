@@ -15,7 +15,7 @@ from google.api_core import iam as api_core_iam
 from google.cloud import exceptions
 from google.cloud import bigquery
 from google.cloud import logging
-from google.cloud import bigquery_datatransfer
+from google.cloud import bigquery_datatransfer_v1
 from googleapiclient import discovery
 from google.oauth2 import service_account
 from google.protobuf.timestamp_pb2 import Timestamp
@@ -63,7 +63,7 @@ def main():
     #    conf=parsed_args, source_bucket=source_bucket)
     #transfer_log_value=_check_log_values(cloud_logger, config)
     
-    bq_dts_client = bigquery_datatransfer.DataTransferServiceClient(credentials=sa_credentials)
+    bq_dts_client = bigquery_datatransfer_v1.DataTransferServiceClient(credentials=sa_credentials)
 
     _move_dataset(cloud_logger, project_id, dataset_name, bq_client, bq_dts_client)
 
@@ -197,7 +197,7 @@ def _execute_bq_dts_job(bq_dts_client, project_id, source_dataset, temp_dataset_
     source_project_id = project_id
     source_dataset_id = source_dataset
 
-    transfer_config_dict = bigquery_datatransfer.TransferConfig(
+    transfer_config = bigquery_datatransfer.TransferConfig(
         destination_dataset_id=destination_dataset_id,
         display_name="Dataset Copy - "+source_dataset_id,
         data_source_id="cross_region_copy",
@@ -206,19 +206,20 @@ def _execute_bq_dts_job(bq_dts_client, project_id, source_dataset, temp_dataset_
             "source_dataset_id": source_dataset_id,
         },
     )
-    transfer_config = bq_dts_client.create_transfer_config(
+    transfer_config_response = bq_dts_client.create_transfer_config(
         parent=bq_dts_client.common_project_path(destination_project_id),
-        transfer_config=transfer_config_dict,
+        transfer_config=transfer_config,
     )
     
-    #now = time()
-    #seconds = int(now)
-    #nanos = int((now - seconds) * 10**9)
-    #start_time = Timestamp(seconds=seconds, nanos=nanos)
-    transfer_runs = bq_dts_client.start_manual_transfer_runs(transfer_config.name)
+    cloud_logger.log_text("Created transfer config: {transfer_config_response.name}")
+    now = time()
+    seconds = int(now)
+    nanos = int((now - seconds) * 10**9)
+    start_time = Timestamp(seconds=seconds, nanos=nanos)
     
-    cloud_logger.log_text("Created transfer config: {transfer_config.name}")
-    return transfer_config
+    transfer_runs = bq_dts_client.start_manual_transfer_runs({"parent": transfer_config_response.name, "requested_run_time": start_time})
+    
+    return transfer_config_response
 
 def _delete_empty_source_bucket(cloud_logger, source_bucket):
     """Delete the empty source bucket
