@@ -160,7 +160,7 @@ def _run_and_wait_for_bq_dts_job (bq_dts_client, project_id, source_dataset, tem
 
     cloud_logger.log_text('Moving from dataset {} to {}'.format(source_dataset, temp_dataset_name))
     cloud_logger.log_text('Creating BQ DTS job')
-    bq_dts_job_name = _execute_bq_dts_job(bq_dts_client, project_id,source_dataset, temp_dataset_name)
+    bq_dts_job_name = _execute_bq_dts_job(bq_dts_client, project_id,source_dataset, temp_dataset_name, cloud_logger)
 
     # Check every 10 seconds until STS job is complete
     while True:
@@ -179,7 +179,7 @@ def _run_and_wait_for_bq_dts_job (bq_dts_client, project_id, source_dataset, tem
     return False
 
 
-def _execute_bq_dts_job(bq_dts_client, project_id, source_dataset, temp_dataset_name):
+def _execute_bq_dts_job(bq_dts_client, project_id, source_dataset, temp_dataset_name, cloud_logger):
     """Start the BQ DTS job.
 
     Args:
@@ -205,6 +205,9 @@ def _execute_bq_dts_job(bq_dts_client, project_id, source_dataset, temp_dataset_
             "source_project_id": source_project_id,
             "source_dataset_id": source_dataset_id,
         },
+        'schedule_options': {
+            'disable_auto_scheduling': True
+        }
     )
     transfer_config_response = bq_dts_client.create_transfer_config(
         parent=bq_dts_client.common_project_path(destination_project_id),
