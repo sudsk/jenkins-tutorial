@@ -49,7 +49,7 @@ def main():
     bq_client = bigquery.Client(
                 credentials=sa_credentials, project=project_id)
     
-    source_dataset = bq_client.get_dataset(project_id+'.'+dataset_name)
+    source_dataset = bq_client.get_dataset(project_id +'.' + dataset_name)
 
     if source_dataset is None:
         msg = 'The source dataset does not exist, so we cannot continue'
@@ -61,9 +61,9 @@ def main():
     # Get copies of all of the source dataset's IAM, and settings so they
     # can be copied over to the target dataset; details are retrievable
     # only if the corresponding feature is enabled in the configuration
-    #source_bucket_details = bucket_details.BucketDetails(
-    #    conf=parsed_args, source_bucket=source_bucket)
-    #transfer_log_value=_check_log_values(cloud_logger, config)
+    
+    source_dataset_details = DatasetDetails(
+        source_dataset=source_dataset)
     
     bq_dts_client = bigquery_datatransfer_v1.DataTransferServiceClient(credentials=sa_credentials)
 
@@ -134,7 +134,8 @@ def _reconcile_datasets(cloud_logger, project_id, first_dataset, second_dataset,
     Returns:
         The dataset object that has been created in BQ
     """
-    _print_and_log(cloud_logger, 'Query dataset {} in project {} for no of tables, total no of rows, and total size'.format(first_dataset, project_id))
+    _print_and_log(cloud_logger, 'Starting reconciliation between {} and {}'.format(first_dataset,second_dataset))
+    _print_and_log(cloud_logger, 'Query dataset {} metrics in project {}'.format(first_dataset, project_id))
     query_job_first_dataset = bq_client.query(
         """
         SELECT COUNT(table_id) as table_count, SUM(row_count) total_rows, SUM(size_bytes) AS total_size 
@@ -146,13 +147,11 @@ def _reconcile_datasets(cloud_logger, project_id, first_dataset, second_dataset,
         first_dataset_total_rows = row.total_rows
         first_dataset_total_size = row.total_size
         
-    _print_and_log(cloud_logger, first_dataset + " results = [table_count : "
-          + str(first_dataset_table_count) + ", total_rows : "
-          + str(first_dataset_total_rows) + ", total_size : "
-          + str(first_dataset_total_size) + " ]"
+    _print_and_log(cloud_logger, "{} results = [table_count : {}, total_rows : {}, total_size : {}]"
+          .format(first_dataset,str(first_dataset_table_count),str(first_dataset_total_rows),str(first_dataset_total_size))
          )
      
-    _print_and_log(cloud_logger, 'Query dataset {} in project {} for no of tables, total no of rows, and total size'.format(second_dataset, project_id))
+    _print_and_log(cloud_logger, 'Query dataset {} metrics in project {}'.format(second_dataset, project_id))
     query_job_second_dataset = bq_client.query(
         """
         SELECT COUNT(table_id) as table_count, SUM(row_count) total_rows, SUM(size_bytes) AS total_size 
@@ -164,10 +163,8 @@ def _reconcile_datasets(cloud_logger, project_id, first_dataset, second_dataset,
         second_dataset_total_rows = row.total_rows
         second_dataset_total_size = row.total_size
         
-    _print_and_log(cloud_logger, second_dataset + " results = [table_count : "
-          + str(second_dataset_table_count) + ", total_rows : "
-          + str(second_dataset_total_rows) + ", total_size : "
-          + str(second_dataset_total_size) + " ]"
+    _print_and_log(cloud_logger, "{} results = [table_count : {}, total_rows : {}, total_size : {}]"
+          .format(second_dataset,str(second_dataset_table_count),str(second_dataset_total_rows),str(second_dataset_total_size))
          )
     
     if (first_dataset_table_count == second_dataset_table_count and 
@@ -534,63 +531,6 @@ def _check_sts_job(spinner, cloud_logger, sts_client, target_project, job_name):
 
     return sts_job_status.StsJobStatus.in_progress
 
-
-def _print_sts_counters(spinner, cloud_logger, counters, is_job_done):
-    """Print out the current STS job counters.
-
-    Args:
-        spinner: The spinner displayed in the console
-        cloud_logger: A GCP logging client instance
-        counters: The counters object returned as part of the STS job status query
-        is_job_done: If True, print out the final counters instead of just the in progress ones
-    """
-
-    if counters:
-        bytes_copied_to_sink = int(counters.get('bytesCopiedToSink', '0'))
-        objects_copied_to_sink = int(counters.get('objectsCopiedToSink', '0'))
-        bytes_found_from_source = int(counters.get('bytesFoundFromSource', '0'))
-        objects_found_from_source = int(counters.get('objectsFoundFromSource', '0'))
-        bytes_deleted_from_source = int(counters.get('bytesDeletedFromSource', '0'))
-        objects_deleted_from_source = int(counters.get('objectsDeletedFromSource','0'))
-
-        if is_job_done:
-            byte_status = (bytes_copied_to_sink == bytes_found_from_source ==
-                           bytes_deleted_from_source)
-            object_status = (objects_copied_to_sink == objects_found_from_source
-                             == objects_deleted_from_source)
-
-            if byte_status and object_status:
-                new_text = 'Success! STS job copied {} bytes in {} objects'.format(
-                    bytes_copied_to_sink, objects_copied_to_sink)
-            else:
-                new_text = (
-                    'Error! STS job copied {} of {} bytes in {} of {} objects and deleted'
-                    ' {} bytes and {} objects').format(
-                        bytes_copied_to_sink, bytes_found_from_source,
-                        objects_copied_to_sink, objects_found_from_source,
-                        bytes_deleted_from_source, objects_deleted_from_source)
-
-            if spinner.text != new_text:
-                spinner.write(spinner.text)
-                spinner.text = new_text
-                cloud_logger.log_text(new_text)
-        else:
-            if bytes_copied_to_sink > 0 and objects_copied_to_sink > 0:
-                byte_percent = '{:.0%}'.format(
-                    float(bytes_copied_to_sink) /
-                    float(bytes_found_from_source))
-                object_percent = '{:.0%}'.format(
-                    float(objects_copied_to_sink) /
-                    float(objects_found_from_source))
-                spinner.write(spinner.text)
-                new_text = '{} of {} bytes ({}) copied in {} of {} objects ({})'.format(
-                    bytes_copied_to_sink, bytes_found_from_source, byte_percent,
-                    objects_copied_to_sink, objects_found_from_source,
-                    object_percent)
-                spinner.text = new_text
-                cloud_logger.log_text(new_text)
-
-
 def _print_and_log(cloud_logger, message):
     """Print the message and log it to the cloud.
 
@@ -601,18 +541,56 @@ def _print_and_log(cloud_logger, message):
     print(message)
     cloud_logger.log_text(message)
 
+class DatasetDetails(object):
+    """Holds the details and settings of a dataset."""
 
-def _write_spinner_and_log(spinner, cloud_logger, message):
-    """Write the message to the spinner and log it to the cloud.
+    # pylint: disable=attribute-defined-outside-init
+    # This is done intentionally so that properties set either in the init or modified in outside
+    # code will be forced to follow the skip rules specified on the command line.
 
-    Args:
-        spinner: The spinner object to write the message to
-        cloud_logger: A GCP logging client instance
-        message: The message to print and log
-    """
-    spinner.write(message)
-    cloud_logger.log_text(message)
+    # pylint: disable=too-many-instance-attributes
+    # All of these attributes relate to the bucket being copied.
 
+    def __init__(self, source_dataset):
+        """Init the class from a source dataset.
+        Args:
+            conf: the configargparser parsing of command line options
+            source_bucket: a google.cloud.storage.Bucket object that the bucket details should be
+                copied from.
+        """
+
+        # Unless these values are specified on the command line, use the values from the source
+        # bucket
+        self.access_entries = source_dataset.access_entries
+        self.created = source_dataset.created
+        self.dataset_id = source_dataset.dataset_id
+        self.default_encryption_configuration = source_dataset.default_encryption_configuration
+        self.default_partition_expiration_ms = source_dataset.default_partition_expiration_ms
+        self.default_table_expiration_ms = source_dataset.default_table_expiration_ms
+        self.description = source_dataset.description
+        self.etag = source_dataset.etag
+        self.friendly_name = source_dataset.friendly_name
+        self.full_dataset_id = source_dataset.full_dataset_id
+        self.labels = source_dataset.labels
+        self.location = source_dataset.location
+        self.modified = source_dataset.modified
+        self.path = source_dataset.path
+        self.project = source_dataset.project
+        self.reference = source_dataset.reference
+        self.self_link = source_dataset.self_link
+
+        # These properties can be skipped with cmd line params, so use the property setters to
+        # make the checks
+        self.iam_policy = source_dataset.get_iam_policy()
+
+    @property
+    def iam_policy(self):
+        """Get the dataset IAM policy"""
+        return self._iam_policy
+
+    @iam_policy.setter
+    def iam_policy(self, value):
+        self._iam_policy = None if self._skip_iam else value
 
 if __name__ == '__main__':
     main()
