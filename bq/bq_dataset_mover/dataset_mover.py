@@ -103,12 +103,9 @@ def _move_dataset(cloud_logger, project_id, source_dataset, bq_client, bq_dts_cl
     temp_dataset_name = source_dataset + "_temp"
     target_temp_dataset = _create_target_dataset(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client)
     
-    """
-    bq_dts_account_email = _assign_bqdts_permissions(cloud_logger, sts_client, config, target_temp_bucket)
-    _run_and_wait_for_sts_job(sts_client, config.target_project,
-                              config.bucket_name, config.temp_bucket_name,
+    _run_and_wait_for_bq_dts_job(bq_dts_client, project_id, , config.temp_bucket_name,
                               cloud_logger,config,transfer_log_value)
-
+    """
     _delete_empty_source_bucket(cloud_logger, source_bucket)
     _recreate_source_bucket(cloud_logger, config, source_bucket_details)
     _assign_sts_permissions_to_new_bucket(cloud_logger, bq_dts_account_email,
@@ -143,56 +140,6 @@ def _create_target_dataset(cloud_logger, project_id, source_dataset, temp_datase
     
     return target_dataset
 
-
-def _assign_sts_permissions(cloud_logger, sts_client, config,
-                            target_temp_bucket):
-    """Assign the required STS permissions to the source/temp bucket
-
-    Args:
-        cloud_logger: A GCP logging client instance
-        sts_client: The STS client object to be used
-        config: A Configuration object with all of the config values needed for the script to run
-        target_temp_bucket: The bucket object for the temp bucket in the target project
-
-    Returns:
-        The email account of the STS account
-    """
-
-    spinner_text = 'Assigning STS permissions to source/temp buckets'
-    cloud_logger.log_text(spinner_text)
-    with yaspin(text=spinner_text) as spinner:
-        sts_account_email = _get_sts_iam_account_email(sts_client,
-                                                       config.target_project)
-        _write_spinner_and_log(
-            spinner, cloud_logger,
-            'STS service account for IAM usage: {}'.format(sts_account_email))
-        _assign_sts_iam_roles(sts_account_email, config.source_storage_client,
-                              config.source_project, config.bucket_name, True)
-        _assign_sts_iam_roles(sts_account_email, config.target_storage_client,
-                              config.target_project, target_temp_bucket.name,
-                              True)
-        spinner.ok(_CHECKMARK)
-        return sts_account_email
-
-
-def _assign_sts_permissions_to_new_bucket(cloud_logger, sts_account_email,
-                                          config):
-    """Assign the required STS permissions to the new source bucket in the target project
-
-    Args:
-        cloud_logger: A GCP logging client instance
-        sts_account_email: The email account of the STS account
-        config: A Configuration object with all of the config values needed for the script to run
-    """
-
-    spinner_text = 'Assigning STS permissions to new source bucket'
-    cloud_logger.log_text(spinner_text)
-    with yaspin(text=spinner_text) as spinner:
-        _assign_sts_iam_roles(sts_account_email, config.target_storage_client,
-                              config.target_project, config.bucket_name, False)
-        spinner.ok(_CHECKMARK)
-
-
 def _delete_empty_source_bucket(cloud_logger, source_bucket):
     """Delete the empty source bucket
 
@@ -206,7 +153,6 @@ def _delete_empty_source_bucket(cloud_logger, source_bucket):
     with yaspin(text=spinner_text) as spinner:
         source_bucket.delete()
         spinner.ok(_CHECKMARK)
-
 
 def _recreate_source_bucket(cloud_logger, config, source_bucket_details):
     """Now that the original source bucket is deleted, re-create it in the target project
@@ -224,7 +170,6 @@ def _recreate_source_bucket(cloud_logger, config, source_bucket_details):
                        source_bucket_details)
         spinner.ok(_CHECKMARK)
 
-
 def _delete_empty_temp_bucket(cloud_logger, target_temp_bucket):
     """Now that the temp bucket is empty, delete it
 
@@ -238,26 +183,6 @@ def _delete_empty_temp_bucket(cloud_logger, target_temp_bucket):
     with yaspin(text=spinner_text) as spinner:
         target_temp_bucket.delete()
         spinner.ok(_CHECKMARK)
-
-
-def _remove_sts_permissions(cloud_logger, sts_account_email, config,
-                            bucket_name):
-    """Remove the STS permissions from the new source bucket in the target project
-
-    Args:
-        cloud_logger: A GCP logging client instance
-        sts_account_email: The email account of the STS account
-        config: A Configuration object with all of the config values needed for the script to run
-        bucket_name: The name of the bucket to remove the permissions from
-    """
-
-    spinner_text = 'Removing STS permissions from bucket {}'.format(bucket_name)
-    cloud_logger.log_text(spinner_text)
-    with yaspin(text=spinner_text) as spinner:
-        _remove_sts_iam_roles(sts_account_email, config.target_storage_client,
-                              bucket_name)
-        spinner.ok(_CHECKMARK)
-
 
 def _get_project_number(project_id, credentials):
     """Using the project id, get the unique project number for a project.
@@ -273,7 +198,6 @@ def _get_project_number(project_id, credentials):
     crm = discovery.build('cloudresourcemanager', 'v1', credentials=credentials)
     project = crm.projects().get(projectId=project_id).execute(num_retries=5)  # pylint: disable=no-member
     return project['projectNumber']
-
 
 def _create_dataset (cloud_logger, project_id, temp_dataset_name, bq_client):
     #cloud_logger, config, bucket_name, source_dataset_details):
@@ -295,7 +219,6 @@ def _create_dataset (cloud_logger, project_id, temp_dataset_name, bq_client):
     # Construct a full Dataset object to send to the API.
     dataset = bigquery.Dataset(dataset_id)
 
-    # TODO(developer): Specify the geographic location where the dataset should reside.
     dataset.location = "asia-east2"
 
     # Send the dataset to the API for creation, with an explicit timeout.
@@ -305,11 +228,9 @@ def _create_dataset (cloud_logger, project_id, temp_dataset_name, bq_client):
     
     return dataset
 
-
 def _retry_if_false(result):
     """Return True if we should retry because the function returned False"""
     return result is False
-
 
 @retry(
     retry_on_result=_retry_if_false,
@@ -344,7 +265,6 @@ def _create_bucket_api_call(spinner, cloud_logger, bucket):
         return False
     return True
 
-
 def _update_iam_policies(config, bucket, source_bucket_details):
     """Take the existing IAM, replace the source project number with the target project
     number and then assign the IAM to the new bucket.
@@ -372,7 +292,6 @@ def _update_iam_policies(config, bucket, source_bucket_details):
     # Give the target bucket all of the same policies as the source bucket, but with updated
     # project roles
     bucket.set_iam_policy(source_bucket_details.iam_policy)
-
 
 def _update_acl_entities(config, source_entities):
     """Update the source ACL entities.
@@ -417,7 +336,6 @@ def _update_acl_entities(config, source_entities):
 
     return new_acl
 
-
 def _update_notifications(spinner, cloud_logger, config, notifications, bucket):
     """Update the notifications on the target bucket to match those from the source bucket.
 
@@ -443,7 +361,6 @@ def _update_notifications(spinner, cloud_logger, config, notifications, bucket):
             blob_name_prefix=item.blob_name_prefix,
             payload_format=item.payload_format)
         notification.create()
-
 
 def _get_sts_iam_account_email(sts_client, project_id):
     """Get the account email that the STS service will run under.
