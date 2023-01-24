@@ -211,11 +211,11 @@ def _execute_bq_dts_job(bq_dts_client, project_id, source_dataset, temp_dataset_
         transfer_config=transfer_config_dict,
     )
     
-    now = time()
-    seconds = int(now)
-    nanos = int((now - seconds) * 10**9)
-    start_time = Timestamp(seconds=seconds, nanos=nanos)
-    transfer_runs = bq_dts_client.start_manual_transfer_runs(transfer_config.name, requested_run_time=start_time)
+    #now = time()
+    #seconds = int(now)
+    #nanos = int((now - seconds) * 10**9)
+    #start_time = Timestamp(seconds=seconds, nanos=nanos)
+    transfer_runs = bq_dts_client.start_manual_transfer_runs(transfer_config.name)
     
     cloud_logger.log_text("Created transfer config: {transfer_config.name}")
     return transfer_config
