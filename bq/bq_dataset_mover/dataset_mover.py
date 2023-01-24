@@ -275,7 +275,7 @@ def _get_project_number(project_id, credentials):
     return project['projectNumber']
 
 
-def _create_dataset (cloud_logger, project_id, temp_dataset_name, bq_client)
+def _create_dataset (cloud_logger, project_id, temp_dataset_name, bq_client):
     #cloud_logger, config, bucket_name, source_dataset_details):
     """Creates a dataset and replicates all of the settings from source_bucket_details.
 
