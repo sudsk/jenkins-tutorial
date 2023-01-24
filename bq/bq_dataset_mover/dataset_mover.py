@@ -56,7 +56,7 @@ def main():
         cloud_logger.log_text(msg)
         raise SystemExit(msg)
         
-    cloud_logger.log_text(str(source_dataset))
+    print("dataset details: "+str(source_dataset))
     
     # Get copies of all of the source dataset's IAM, and settings so they
     # can be copied over to the target dataset; details are retrievable
