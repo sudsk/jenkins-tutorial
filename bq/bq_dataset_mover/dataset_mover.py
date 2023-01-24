@@ -214,8 +214,7 @@ def _execute_bq_dts_job(bq_dts_client, project_id, source_dataset, temp_dataset_
     now = time()
     seconds = int(now)
     nanos = int((now - seconds) * 10**9)
-    #start_time = Timestamp(seconds=seconds, nanos=nanos)
-    start_time = bigquery_datatransfer_v1.types.Timestamp(seconds=seconds, nanos=nanos)
+    start_time = google.protobuf.timestamp_pb2.Timestamp(seconds=seconds, nanos=nanos)
     transfer_runs = bq_dts_client.start_manual_transfer_runs(transfer_config.name, requested_run_time=start_time)
     
     cloud_logger.log_text("Created transfer config: {transfer_config.name}")
