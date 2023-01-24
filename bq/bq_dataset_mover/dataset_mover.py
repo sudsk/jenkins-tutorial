@@ -103,7 +103,7 @@ def _move_dataset(cloud_logger, project_id, source_dataset, bq_client, bq_dts_cl
     temp_dataset_name = source_dataset + "_temp"
     target_temp_dataset = _create_target_dataset(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client)
     
-    _run_and_wait_for_bq_dts_job(bq_dts_client, project_id, temp_dataset_name, cloud_logger)
+    _run_and_wait_for_bq_dts_job(bq_dts_client, project_id, source_dataset, temp_dataset_name, cloud_logger)
     """
     _delete_empty_source_bucket(cloud_logger, source_bucket)
     _recreate_source_bucket(cloud_logger, config, source_bucket_details)
@@ -144,9 +144,9 @@ def _create_target_dataset(cloud_logger, project_id, source_dataset, temp_datase
     wait_exponential_multiplier=10000,
     wait_exponential_max=120000,
     stop_max_attempt_number=10)
-def _run_and_wait_for_sts_job(sts_client, target_project, source_bucket_name,
-                              sink_bucket_name, cloud_logger,config,transfer_log_value):
-    """Kick off the STS job and wait for it to complete. Retry if it fails.
+def _run_and_wait_for_bq_dts_job (bq_dts_client, project_id, source_dataset, temp_dataset_name, cloud_logger):
+    #(sts_client, target_project, source_bucket_name, sink_bucket_name, cloud_logger,config,transfer_log_value):
+    """Kick off the BQ DTS job and wait for it to complete. Retry if it fails.
 
     Args:
         sts_client: The STS client object to be used
@@ -162,45 +162,29 @@ def _run_and_wait_for_sts_job(sts_client, target_project, source_bucket_name,
     # Note that this routine is in a @retry decorator, so non-True exits
     # and unhandled exceptions will trigger a retry.
 
-    msg = 'Moving from bucket {} to {}'.format(source_bucket_name,
-                                               sink_bucket_name)
-    _print_and_log(cloud_logger, msg)
-
-    spinner_text = 'Creating STS job'
-    cloud_logger.log_text(spinner_text)
-    with yaspin(text=spinner_text) as spinner:
-        sts_job_name = _execute_sts_job(sts_client, target_project,
-                                        source_bucket_name, sink_bucket_name,config,transfer_log_value)
-        spinner.ok(_CHECKMARK)
+    cloud_logger.log_text('Moving from dataset {} to {}'.format(source_dataset, temp_dataset_name))
+    cloud_logger.log_text('Creating BQ DTS job')
+    bq_dts_job_name = _execute_bq_dts_job(bq_dts_client, project_id,source_dataset, temp_dataset_name)
 
     # Check every 10 seconds until STS job is complete
-    with yaspin(text='Checking STS job status') as spinner:
-        while True:
-            job_status = _check_sts_job(spinner, cloud_logger, sts_client,
-                                        target_project, sts_job_name)
-            if job_status != sts_job_status.StsJobStatus.in_progress:
-                break
-            sleep(10)
+    while True:
+        job_status = _check_sts_job(cloud_logger, bq_dts_client,
+                                        project_id, sts_job_name)
+        if job_status != sts_job_status.StsJobStatus.in_progress:
+            break
+        sleep(10)
 
     if job_status == sts_job_status.StsJobStatus.success:
-  
         return True
 
-    # Execution will only reach this code if something went wrong with the STS job
-    _print_and_log(
-        cloud_logger,
-        'There was an unexpected failure with the STS job. You can view the'
-        ' details in the cloud console.')
-    _print_and_log(
-        cloud_logger,
-        'Waiting for a period of time and then trying again. If you choose to'
-        ' cancel this script, the buckets will need to be manually cleaned up.')
+    # Execution will only reach this code if something went wrong with the BQ DTS job
+    cloud_logger('There was an unexpected failure with the BQ DTS job. You can view the details in the cloud console.')
+    cloud_logger('Waiting for a period of time and then trying again. If you choose to cancel this script, the buckets will need to be manually cleaned up.')
     return False
 
 
-def _execute_sts_job(sts_client, target_project, source_bucket_name,
-                     sink_bucket_name,config,transfer_log_value):
-    """Start the STS job.
+def _execute_bq_dts_job(bq_dts_client, project_id, source_dataset, temp_dataset_name):
+    """Start the BQ DTS job.
 
     Args:
         sts_client: The STS client object to be used
@@ -212,64 +196,33 @@ def _execute_sts_job(sts_client, target_project, source_bucket_name,
         The name of the STS job as a string
     """
 
-    now = datetime.date.today()
-    if config.bucket_name == sink_bucket_name:
-        time_preserved = None
-    else:
-        if config.preserve_custom_time == None:
-            time_preserved = None
+    destination_project_id = project_id
+    destination_dataset_id = temp_dataset_name
+    source_project_id = project_id
+    source_dataset_id = source_dataset
 
-        elif config.preserve_custom_time == "TIME_CREATED_PRESERVE_AS_CUSTOM_TIME":
-            time_preserved= config.preserve_custom_time
-
-        elif config.preserve_custom_time == "TIME_CREATED_SKIP":
-            time_preserved = config.preserve_custom_time
-        
-        elif config.preserve_custom_time == "TIME_CREATED_UNSPECIFIED":
-            time_preserved = config.preserve_custom_time
-
-        else:
-            msg = 'Time created value is not available'
-            raise SystemExit(msg)	
-    
-    transfer_job = {
-        'description':
-        'Move bucket {} to {} in project {}'.format(
-            source_bucket_name, sink_bucket_name, target_project),
-        'status': 'ENABLED',
-        'projectId': target_project,
-        'schedule': {
-            'scheduleStartDate': {
-                'day': now.day - 1,
-                'month': now.month,
-                'year': now.year
-            },
-            'scheduleEndDate': {
-                'day': now.day - 1,
-                'month': now.month,
-                'year': now.year
-            }
+    transfer_config_dict = bigquery_datatransfer.TransferConfig(
+        destination_dataset_id=destination_dataset_id,
+        display_name="Dataset Copy - "+source_dataset_id,
+        data_source_id="dataset_copy",
+        params={
+            "source_project_id": source_project_id,
+            "source_dataset_id": source_dataset_id,
         },
-        'transferSpec': {
-            'gcsDataSource': {
-                'bucketName': source_bucket_name
-            },
-            'gcsDataSink': {
-                'bucketName': sink_bucket_name
-            },
-            "transferOptions": {
-                "deleteObjectsFromSourceAfterTransfer": True,
-                "metadataOptions": {
-                    "timeCreated": time_preserved
-                }         
-            }
-        }
-    }
-    transfer_job["loggingConfig"]=transfer_log_value   
-    result = sts_client.transferJobs().create(body=transfer_job).execute(
-        num_retries=5)
-    return result['name']
-
+    )
+    transfer_config = transfer_client.create_transfer_config(
+        parent=bq_dts_client.common_project_path(destination_project_id),
+        transfer_config=transfer_config_dict,
+    )
+    
+    now = time()
+    seconds = int(now)
+    nanos = int((now - seconds) * 10**9)
+    start_time = bigquery_datatransfer_v1.types.Timestamp(seconds=seconds, nanos=nanos)
+    transfer_runs = bq_dts_client.start_manual_transfer_runs(transfer_config.name, requested_run_time=start_time)
+    
+    cloud_logger.log_text("Created transfer config: {transfer_config.name}")
+    return transfer_config
 
 def _delete_empty_source_bucket(cloud_logger, source_bucket):
     """Delete the empty source bucket
