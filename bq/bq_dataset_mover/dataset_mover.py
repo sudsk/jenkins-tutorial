@@ -99,8 +99,9 @@ def _move_dataset(cloud_logger, project_id, source_dataset, bq_client, bq_dts_cl
         source_dataset: The bucket object for the original source bucket in the source project
         bq_dts_client: The BQ DTS client object to be used
     """
+    temp_dataset_name = source_dataset + "_temp"
     target_temp_dataset = _create_target_dataset(
-        cloud_logger, project_id, source_dataset, temp_dataset_name=source_dataset+"_temp", bq_client)
+        cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client)
     """
     bq_dts_account_email = _assign_bqdts_permissions(cloud_logger, sts_client,
                                                 config, target_temp_bucket)
