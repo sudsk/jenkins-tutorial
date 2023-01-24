@@ -227,14 +227,14 @@ def _run_and_wait_for_bq_dts_job (bq_dts_client, project_id, source_dataset, tem
 
     _print_and_log(cloud_logger,'Moving from dataset {} to {}'.format(source_dataset, temp_dataset_name))
     _print_and_log(cloud_logger,'Creating BQ DTS job')
-    bq_dts_job_name = _execute_bq_dts_job(bq_dts_client, project_id,source_dataset, temp_dataset_name, cloud_logger)
+    bq_dts_run_name = _execute_bq_dts_job(bq_dts_client, project_id,source_dataset, temp_dataset_name, cloud_logger)
     
-    print("bq_dts_job_name: {}".format(bq_dts_job_name))
+    print("bq_dts_job_name: {}".format(bq_dts_run_name))
 
     # Check every 10 seconds until DTS job is complete
     while True:
         job_status = _check_sts_job(cloud_logger, bq_dts_client,
-                                        project_id, bq_dts_job_name)
+                                        project_id, bq_dts_run_name)
         if job_status != sts_job_status.StsJobStatus.in_progress:
             break
         sleep(10)
@@ -291,7 +291,7 @@ def _execute_bq_dts_job(bq_dts_client, project_id, source_dataset, temp_dataset_
     
     transfer_runs = bq_dts_client.start_manual_transfer_runs({"parent": transfer_config_response.name, "requested_run_time": start_time})
     
-    return transfer_runs.name
+    return transfer_runs.runs[0].name
 
 def _delete_empty_source_bucket(cloud_logger, source_bucket):
     """Delete the empty source bucket
