@@ -41,7 +41,7 @@ def main():
     logging_client = logging.Client(credentials=sa_credentials, project = project_id)
     cloud_logger = logging_client.logger("bq-dataset-mover")  
 
-    cloud_logger.log_text("Starting BQ Dataset Mover")
+    _print_and_log(cloud_logger, "Starting BQ Dataset Mover")
     _print_and_log(cloud_logger, 'Project: {}'.format(project_id))
     _print_and_log(cloud_logger, 'Dataset: {}'.format(dataset_name))
     _print_and_log(cloud_logger, 'Service Account: {}'.format(sa_email))
@@ -56,7 +56,7 @@ def main():
         cloud_logger.log_text(msg)
         raise SystemExit(msg)
         
-    print("dataset details: "+ source_dataset.description)
+    _print_and_log(cloud_logger, "dataset details: "+ source_dataset.description)
     
     # Get copies of all of the source dataset's IAM, and settings so they
     # can be copied over to the target dataset; details are retrievable
@@ -69,7 +69,7 @@ def main():
 
     _move_dataset(cloud_logger, project_id, dataset_name, bq_client, bq_dts_client)
 
-    cloud_logger.log_text('Completed BQ Dataset Mover')
+    _print_and_log(cloud_logger, 'Completed BQ Dataset Mover')
 
     
 def _get_parsed_args():
@@ -134,7 +134,7 @@ def _reconcile_datasets(cloud_logger, project_id, first_dataset, second_dataset,
     Returns:
         The dataset object that has been created in BQ
     """
-    cloud_logger.log_text('Query dataset {} in project {} for no of tables, total no of rows, and total size'.format(first_dataset, project_id))
+    _print_and_log(cloud_logger, 'Query dataset {} in project {} for no of tables, total no of rows, and total size'.format(first_dataset, project_id))
     query_job_first_dataset = bq_client.query(
         """
         SELECT COUNT(table_id) as table_count, SUM(row_count) total_rows, SUM(size_bytes) AS total_size 
@@ -146,13 +146,13 @@ def _reconcile_datasets(cloud_logger, project_id, first_dataset, second_dataset,
         first_dataset_total_rows = row.total_rows
         first_dataset_total_size = row.total_size
         
-    print(first_dataset + " results = [table_count : "
+    _print_and_log(cloud_logger, first_dataset + " results = [table_count : "
           + str(first_dataset_table_count) + ", total_rows : "
           + str(first_dataset_total_rows) + ", total_size : "
           + str(first_dataset_total_size) + " ]"
          )
      
-    cloud_logger.log_text('Query dataset {} in project {} for no of tables, total no of rows, and total size'.format(second_dataset, project_id))
+    _print_and_log(cloud_logger, 'Query dataset {} in project {} for no of tables, total no of rows, and total size'.format(second_dataset, project_id))
     query_job_second_dataset = bq_client.query(
         """
         SELECT COUNT(table_id) as table_count, SUM(row_count) total_rows, SUM(size_bytes) AS total_size 
@@ -164,7 +164,7 @@ def _reconcile_datasets(cloud_logger, project_id, first_dataset, second_dataset,
         second_dataset_total_rows = row.total_rows
         second_dataset_total_size = row.total_size
         
-    print(second_dataset + " results = [table_count : "
+    _print_and_log(cloud_logger, second_dataset + " results = [table_count : "
           + str(second_dataset_table_count) + ", total_rows : "
           + str(second_dataset_total_rows) + ", total_size : "
           + str(second_dataset_total_size) + " ]"
@@ -173,11 +173,11 @@ def _reconcile_datasets(cloud_logger, project_id, first_dataset, second_dataset,
     if (first_dataset_table_count == second_dataset_table_count and 
         first_dataset_total_rows == second_dataset_total_rows and
         first_dataset_total_size == second_dataset_total_size):
-        cloud_logger.log_text('Reconciliation complete')
+        _print_and_log(cloud_logger,'Reconciliation complete')
         return
     else:
         msg = 'Reconciliation failed'
-        cloud_logger.log_text(msg)
+        _print_and_log(cloud_logger,msg)
         raise SystemExit(msg)
     
 def _create_target_dataset(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client):
@@ -193,11 +193,11 @@ def _create_target_dataset(cloud_logger, project_id, source_dataset, temp_datase
         The dataset object that has been created in BQ
     """
 
-    cloud_logger.log_text('Creating temp dataset {} in project {}'.format(temp_dataset_name, project_id))
+    _print_and_log(cloud_logger,'Creating temp dataset {} in project {}'.format(temp_dataset_name, project_id))
     
     target_dataset = _create_dataset(cloud_logger, project_id, temp_dataset_name, bq_client)
     
-    cloud_logger.log_text('Dataset {} created in target project {}'.format(temp_dataset_name, project_id))
+    _print_and_log(cloud_logger,'Dataset {} created in target project {}'.format(temp_dataset_name, project_id))
     
     return target_dataset
 
@@ -219,8 +219,8 @@ def _run_and_wait_for_bq_dts_job (bq_dts_client, project_id, source_dataset, tem
     # Note that this routine is in a @retry decorator, so non-True exits
     # and unhandled exceptions will trigger a retry.
 
-    cloud_logger.log_text('Moving from dataset {} to {}'.format(source_dataset, temp_dataset_name))
-    cloud_logger.log_text('Creating BQ DTS job')
+    _print_and_log(cloud_logger,'Moving from dataset {} to {}'.format(source_dataset, temp_dataset_name))
+    _print_and_log(cloud_logger,'Creating BQ DTS job')
     bq_dts_job_name = _execute_bq_dts_job(bq_dts_client, project_id,source_dataset, temp_dataset_name, cloud_logger)
 
     # Check every 10 seconds until STS job is complete
@@ -275,7 +275,7 @@ def _execute_bq_dts_job(bq_dts_client, project_id, source_dataset, temp_dataset_
         transfer_config=transfer_config,
     )
     
-    cloud_logger.log_text("Created transfer config: {transfer_config_response.name}")
+    _print_and_log(cloud_logger,"Created transfer config: {transfer_config_response.name}")
     now = time()
     seconds = int(now)
     nanos = int((now - seconds) * 10**9)
@@ -309,7 +309,7 @@ def _recreate_source_bucket(cloud_logger, config, source_bucket_details):
     """
 
     spinner_text = 'Re-creating source bucket in target project'
-    cloud_logger.log_text(spinner_text)
+    _print_and_log(cloud_logger,spinner_text)
     with yaspin(text=spinner_text) as spinner:
         _create_bucket(spinner, cloud_logger, config, config.bucket_name,
                        source_bucket_details)
@@ -598,7 +598,7 @@ def _print_and_log(cloud_logger, message):
         cloud_logger: A GCP logging client instance
         message: The message to log
     """
-   
+    print(message)
     cloud_logger.log_text(message)
 
 
