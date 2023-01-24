@@ -142,11 +142,11 @@ def _reconcile_source_and_temp_datasets(cloud_logger, project_id, first_dataset,
     )
     results = query_job_first_dataset.result()
     for row in results:
-        table_count = row.table_count
-        total_rows = row.total_rows
-        total_size = row.total_size
+        first_dataset_table_count = row.table_count
+        first_dataset_total_rows = row.total_rows
+        first_dataset_total_size = row.total_size
         
-    print("results = "+ table_count)
+    print(first_dataset + " results = [table_count : "+ str(table_count) + ", total_rows : "+ str(total_rows) + ", total_size : "+ str(total_size) + " ]")
     
 def _create_target_dataset(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client):
     """Creates the temp dataset in the target project
