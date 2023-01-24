@@ -140,13 +140,37 @@ def _reconcile_source_and_temp_datasets(cloud_logger, project_id, first_dataset,
         SELECT COUNT(table_id) as table_count, SUM(row_count) total_rows, SUM(size_bytes) AS total_size 
         FROM `""" + project_id + "." + first_dataset + ".__TABLES__`"
     )
-    results = query_job_first_dataset.result()
-    for row in results:
+    first_results = query_job_first_dataset.result()
+    for row in first_results:
         first_dataset_table_count = row.table_count
         first_dataset_total_rows = row.total_rows
         first_dataset_total_size = row.total_size
         
-    print(first_dataset + " results = [table_count : "+ str(table_count) + ", total_rows : "+ str(total_rows) + ", total_size : "+ str(total_size) + " ]")
+    print(first_dataset + " results = [table_count : "
+          + str(first_dataset_table_count) + ", total_rows : "
+          + str(first_dataset_total_rows) + ", total_size : "
+          + str(first_dataset_total_size) + " ]"
+         )
+     
+    cloud_logger.log_text('Query dataset {} in project {} for no of tables, total no of rows, and total size'.format(second_dataset, project_id))
+    query_job_second_dataset = bq_client.query(
+        """
+        SELECT COUNT(table_id) as table_count, SUM(row_count) total_rows, SUM(size_bytes) AS total_size 
+        FROM `""" + project_id + "." + second_dataset + ".__TABLES__`"
+    )
+    second_results = query_job_second_dataset.result()
+    for row in second_results:
+        second_dataset_table_count = row.table_count
+        second_dataset_total_rows = row.total_rows
+        second_dataset_total_size = row.total_size
+        
+    print(first_dataset + " results = [table_count : "
+          + str(second_dataset_table_count) + ", total_rows : "
+          + str(second_dataset_total_rows) + ", total_size : "
+          + str(second_dataset_total_size) + " ]"
+         )
+    
+    cloud_logger.log_text('Reconciliation complete')
     
 def _create_target_dataset(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client):
     """Creates the temp dataset in the target project
