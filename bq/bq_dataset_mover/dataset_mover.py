@@ -199,7 +199,7 @@ def _execute_bq_dts_job(bq_dts_client, project_id, source_dataset, temp_dataset_
     transfer_config_dict = bigquery_datatransfer.TransferConfig(
         destination_dataset_id=destination_dataset_id,
         display_name="Dataset Copy - "+source_dataset_id,
-        data_source_id="dataset_copy",
+        data_source_id="cross_region_copy",
         params={
             "source_project_id": source_project_id,
             "source_dataset_id": source_dataset_id,
