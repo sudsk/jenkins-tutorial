@@ -107,13 +107,13 @@ def _move_dataset(cloud_logger, project_id, source_dataset, bq_client, bq_dts_cl
     temp_dataset_name = source_dataset + "_temp"
     
     _print_and_log(cloud_logger, "2 Create temp dataset: {}".format(temp_dataset_name))
-    #target_temp_dataset = _create_target_dataset(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client)
+    target_temp_dataset = _create_target_dataset(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client)
     
     _print_and_log(cloud_logger, "3 Run and wait for BQ DTS job - source to temp")
     _run_and_wait_for_bq_dts_job(bq_dts_client, project_id, source_dataset, temp_dataset_name, cloud_logger)
     
     _print_and_log(cloud_logger, "4 Reconcile datasets")
-    #_reconcile_datasets(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client)
+    _reconcile_datasets(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client)
     """
     _print_and_log(cloud_logger, "5 Delete source dataset: {}".format(source_dataset))
     _delete_source_dataset(cloud_logger, source_dataset)
@@ -233,13 +233,13 @@ def _run_and_wait_for_bq_dts_job (bq_dts_client, project_id, source_dataset, tem
 
     # Check every 10 seconds until DTS job is complete
     while True:
-        job_status = _check_sts_job(cloud_logger, bq_dts_client,
-                                        project_id, bq_dts_run_name)
-        if job_status != sts_job_status.StsJobStatus.in_progress:
+        transfer_run = bq_dts_client.get_transfer_run(bq_dts_run_name)
+        state = transfer_run.state
+        if state != 2 and state != 3:
             break
         sleep(10)
 
-    if job_status == sts_job_status.StsJobStatus.success:
+    if state == 4:
         return True
 
     # Execution will only reach this code if something went wrong with the BQ DTS job
@@ -283,7 +283,7 @@ def _execute_bq_dts_job(bq_dts_client, project_id, source_dataset, temp_dataset_
         transfer_config=transfer_config,
     )
     
-    _print_and_log(cloud_logger,"Created transfer config: {transfer_config_response.name}")
+    _print_and_log(cloud_logger,"Created transfer config: {}".format(transfer_config_response.name))
     now = time()
     seconds = int(now)
     nanos = int((now - seconds) * 10**9)
