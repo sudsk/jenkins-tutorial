@@ -214,7 +214,7 @@ def _execute_bq_dts_job(bq_dts_client, project_id, source_dataset, temp_dataset_
     now = time()
     seconds = int(now)
     nanos = int((now - seconds) * 10**9)
-    start_time = google.protobuf.timestamp_pb2.Timestamp(seconds=seconds, nanos=nanos)
+    start_time = Timestamp(seconds=seconds, nanos=nanos)
     transfer_runs = bq_dts_client.start_manual_transfer_runs(transfer_config.name, requested_run_time=start_time)
     
     cloud_logger.log_text("Created transfer config: {transfer_config.name}")
@@ -373,74 +373,6 @@ def _update_iam_policies(config, bucket, source_bucket_details):
     # project roles
     bucket.set_iam_policy(source_bucket_details.iam_policy)
 
-def _update_acl_entities(config, source_entities):
-    """Update the source ACL entities.
-
-    Take the existing ACLs, replace the source project number with the target project number and
-    then assign the ACLs to the new bucket.
-
-    Args:
-        config: A Configuration object with all of the config values needed for the script to run
-        source_entities: The existing ACL entities of the bucket
-
-    Returns:
-        The list of ACLs with project numbers replaced
-    """
-
-    source_project_number = _get_project_number(
-        config.source_project, config.source_project_credentials)
-    target_project_number = _get_project_number(
-        config.target_project, config.target_project_credentials)
-
-    new_acl = storage.acl.ACL()
-    new_acl.loaded = True
-    # If an entity is for the source project, replace it with the identical one for the new
-    # project
-    for entity in source_entities:
-        # Skip it if it has no identifier
-        if not hasattr(entity, 'identifier'):
-            continue
-
-        # Skip it if the identifier is empty
-        if entity.identifier is None:
-            continue
-
-        # Skip it if the identifier doesn't contain the source project number
-        if '-' + source_project_number not in entity.identifier:
-            continue
-
-        # Replace the source project number with the target project number and add the entity
-        entity.identifier = entity.identifier.replace(source_project_number,
-                                                      target_project_number)
-        new_acl.add_entity(entity)
-
-    return new_acl
-
-def _update_notifications(spinner, cloud_logger, config, notifications, bucket):
-    """Update the notifications on the target bucket to match those from the source bucket.
-
-    Args:
-        spinner: The spinner displayed in the console
-        cloud_logger: A GCP logging client instance
-        config: A Configuration object with all of the config values needed for the script to run
-        notifications: A list of notifications to add to the bucket
-        bucket: The bucket object to update the notifications for
-    """
-
-    for item in notifications:
-        # Give target project service account access to publish to source project topic
-        _assign_target_project_to_topic(spinner, cloud_logger, config,
-                                        item.topic_name, item.topic_project)
-
-        notification = storage.notification.BucketNotification(
-            bucket,
-            item.topic_name,
-            topic_project=item.topic_project,
-            custom_attributes=item.custom_attributes,
-            event_types=item.event_types,
-            blob_name_prefix=item.blob_name_prefix,
-            payload_format=item.payload_format)
-        notification.create()
 
 def _get_sts_iam_account_email(sts_client, project_id):
     """Get the account email that the STS service will run under.
