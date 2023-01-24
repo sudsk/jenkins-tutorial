@@ -107,7 +107,7 @@ def _move_dataset(cloud_logger, project_id, source_dataset, bq_client, bq_dts_cl
     #target_temp_dataset = _create_target_dataset(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client)
     
     #_run_and_wait_for_bq_dts_job(bq_dts_client, project_id, source_dataset, temp_dataset_name, cloud_logger)
-    _reconcile_source_and_temp_datasets(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client)
+    _reconcile_datasets(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client)
     """
     _delete_empty_source_bucket(cloud_logger, source_bucket)
     _recreate_source_bucket(cloud_logger, config, source_bucket_details)
@@ -122,7 +122,7 @@ def _move_dataset(cloud_logger, project_id, source_dataset, bq_client, bq_dts_cl
                             config.bucket_name)
     """
 
-def _reconcile_source_and_temp_datasets(cloud_logger, project_id, first_dataset, second_dataset, bq_client):
+def _reconcile_datasets(cloud_logger, project_id, first_dataset, second_dataset, bq_client):
     """Creates the temp dataset in the target project
 
     Args:
@@ -164,13 +164,21 @@ def _reconcile_source_and_temp_datasets(cloud_logger, project_id, first_dataset,
         second_dataset_total_rows = row.total_rows
         second_dataset_total_size = row.total_size
         
-    print(first_dataset + " results = [table_count : "
+    print(second_dataset + " results = [table_count : "
           + str(second_dataset_table_count) + ", total_rows : "
           + str(second_dataset_total_rows) + ", total_size : "
           + str(second_dataset_total_size) + " ]"
          )
     
-    cloud_logger.log_text('Reconciliation complete')
+    if (first_dataset_table_count == second_dataset_table_count and 
+        first_dataset_total_rows == second_dataset_total_rows and
+        first_dataset_total_size == second_dataset_total_size):
+        cloud_logger.log_text('Reconciliation complete')
+        return
+    else:
+        msg = 'Reconciliation failed'
+        cloud_logger.log_text(msg)
+        raise SystemExit(msg)
     
 def _create_target_dataset(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client):
     """Creates the temp dataset in the target project
