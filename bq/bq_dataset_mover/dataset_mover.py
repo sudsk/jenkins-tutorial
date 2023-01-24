@@ -55,7 +55,9 @@ def main():
         msg = 'The source dataset does not exist, so we cannot continue'
         cloud_logger.log_text(msg)
         raise SystemExit(msg)
-
+        
+    cloud_logger.log_text(source_dataset)
+    
     # Get copies of all of the source dataset's IAM, and settings so they
     # can be copied over to the target dataset; details are retrievable
     # only if the corresponding feature is enabled in the configuration
@@ -104,7 +106,7 @@ def _move_dataset(cloud_logger, project_id, source_dataset, bq_client, bq_dts_cl
     temp_dataset_name = source_dataset + "_temp"
     #target_temp_dataset = _create_target_dataset(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client)
     
-    _run_and_wait_for_bq_dts_job(bq_dts_client, project_id, source_dataset, temp_dataset_name, cloud_logger)
+    #_run_and_wait_for_bq_dts_job(bq_dts_client, project_id, source_dataset, temp_dataset_name, cloud_logger)
     """
     _delete_empty_source_bucket(cloud_logger, source_bucket)
     _recreate_source_bucket(cloud_logger, config, source_bucket_details)
