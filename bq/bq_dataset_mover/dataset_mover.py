@@ -102,7 +102,7 @@ def _move_dataset(cloud_logger, project_id, source_dataset, bq_client, bq_dts_cl
     """
     
     temp_dataset_name = source_dataset + "_temp"
-    target_temp_dataset = _create_target_dataset(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client)
+    #target_temp_dataset = _create_target_dataset(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client)
     
     _run_and_wait_for_bq_dts_job(bq_dts_client, project_id, source_dataset, temp_dataset_name, cloud_logger)
     """
@@ -197,7 +197,7 @@ def _execute_bq_dts_job(bq_dts_client, project_id, source_dataset, temp_dataset_
     source_project_id = project_id
     source_dataset_id = source_dataset
 
-    transfer_config = bigquery_datatransfer.TransferConfig(
+    transfer_config = bigquery_datatransfer_v1.TransferConfig(
         destination_dataset_id=destination_dataset_id,
         display_name="Dataset Copy - "+source_dataset_id,
         data_source_id="cross_region_copy",
