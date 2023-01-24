@@ -103,8 +103,7 @@ def _move_dataset(cloud_logger, project_id, source_dataset, bq_client, bq_dts_cl
     temp_dataset_name = source_dataset + "_temp"
     target_temp_dataset = _create_target_dataset(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client)
     
-    _run_and_wait_for_bq_dts_job(bq_dts_client, project_id, , config.temp_bucket_name,
-                              cloud_logger,config,transfer_log_value)
+    _run_and_wait_for_bq_dts_job(bq_dts_client, project_id, temp_dataset_name, cloud_logger)
     """
     _delete_empty_source_bucket(cloud_logger, source_bucket)
     _recreate_source_bucket(cloud_logger, config, source_bucket_details)
@@ -139,6 +138,138 @@ def _create_target_dataset(cloud_logger, project_id, source_dataset, temp_datase
     cloud_logger.log_text('Dataset {} created in target project {}'.format(temp_dataset_name, project_id))
     
     return target_dataset
+
+@retry(
+    retry_on_result=_retry_if_false,
+    wait_exponential_multiplier=10000,
+    wait_exponential_max=120000,
+    stop_max_attempt_number=10)
+def _run_and_wait_for_sts_job(sts_client, target_project, source_bucket_name,
+                              sink_bucket_name, cloud_logger,config,transfer_log_value):
+    """Kick off the STS job and wait for it to complete. Retry if it fails.
+
+    Args:
+        sts_client: The STS client object to be used
+        target_project: The name of the target project where the STS job will be created
+        source_bucket_name: The name of the bucket where the STS job will transfer from
+        sink_bucket_name: The name of the bucket where the STS job will transfer to
+        cloud_logger: A GCP logging client instance
+
+    Returns:
+        True if the STS job completed successfully, False if it failed for any reason
+    """
+
+    # Note that this routine is in a @retry decorator, so non-True exits
+    # and unhandled exceptions will trigger a retry.
+
+    msg = 'Moving from bucket {} to {}'.format(source_bucket_name,
+                                               sink_bucket_name)
+    _print_and_log(cloud_logger, msg)
+
+    spinner_text = 'Creating STS job'
+    cloud_logger.log_text(spinner_text)
+    with yaspin(text=spinner_text) as spinner:
+        sts_job_name = _execute_sts_job(sts_client, target_project,
+                                        source_bucket_name, sink_bucket_name,config,transfer_log_value)
+        spinner.ok(_CHECKMARK)
+
+    # Check every 10 seconds until STS job is complete
+    with yaspin(text='Checking STS job status') as spinner:
+        while True:
+            job_status = _check_sts_job(spinner, cloud_logger, sts_client,
+                                        target_project, sts_job_name)
+            if job_status != sts_job_status.StsJobStatus.in_progress:
+                break
+            sleep(10)
+
+    if job_status == sts_job_status.StsJobStatus.success:
+  
+        return True
+
+    # Execution will only reach this code if something went wrong with the STS job
+    _print_and_log(
+        cloud_logger,
+        'There was an unexpected failure with the STS job. You can view the'
+        ' details in the cloud console.')
+    _print_and_log(
+        cloud_logger,
+        'Waiting for a period of time and then trying again. If you choose to'
+        ' cancel this script, the buckets will need to be manually cleaned up.')
+    return False
+
+
+def _execute_sts_job(sts_client, target_project, source_bucket_name,
+                     sink_bucket_name,config,transfer_log_value):
+    """Start the STS job.
+
+    Args:
+        sts_client: The STS client object to be used
+        target_project: The name of the target project where the STS job will be created
+        source_bucket_name: The name of the bucket where the STS job will transfer from
+        sink_bucket_name: The name of the bucket where the STS job will transfer to
+
+    Returns:
+        The name of the STS job as a string
+    """
+
+    now = datetime.date.today()
+    if config.bucket_name == sink_bucket_name:
+        time_preserved = None
+    else:
+        if config.preserve_custom_time == None:
+            time_preserved = None
+
+        elif config.preserve_custom_time == "TIME_CREATED_PRESERVE_AS_CUSTOM_TIME":
+            time_preserved= config.preserve_custom_time
+
+        elif config.preserve_custom_time == "TIME_CREATED_SKIP":
+            time_preserved = config.preserve_custom_time
+        
+        elif config.preserve_custom_time == "TIME_CREATED_UNSPECIFIED":
+            time_preserved = config.preserve_custom_time
+
+        else:
+            msg = 'Time created value is not available'
+            raise SystemExit(msg)	
+    
+    transfer_job = {
+        'description':
+        'Move bucket {} to {} in project {}'.format(
+            source_bucket_name, sink_bucket_name, target_project),
+        'status': 'ENABLED',
+        'projectId': target_project,
+        'schedule': {
+            'scheduleStartDate': {
+                'day': now.day - 1,
+                'month': now.month,
+                'year': now.year
+            },
+            'scheduleEndDate': {
+                'day': now.day - 1,
+                'month': now.month,
+                'year': now.year
+            }
+        },
+        'transferSpec': {
+            'gcsDataSource': {
+                'bucketName': source_bucket_name
+            },
+            'gcsDataSink': {
+                'bucketName': sink_bucket_name
+            },
+            "transferOptions": {
+                "deleteObjectsFromSourceAfterTransfer": True,
+                "metadataOptions": {
+                    "timeCreated": time_preserved
+                }         
+            }
+        }
+    }
+    transfer_job["loggingConfig"]=transfer_log_value   
+    result = sts_client.transferJobs().create(body=transfer_job).execute(
+        num_retries=5)
+    return result['name']
+
 
 def _delete_empty_source_bucket(cloud_logger, source_bucket):
     """Delete the empty source bucket
@@ -377,46 +508,6 @@ def _get_sts_iam_account_email(sts_client, project_id):
         projectId=project_id).execute(num_retries=5)
     return result['accountEmail']
 
-
-def _assign_sts_iam_roles(sts_email, storage_client, project_name, bucket_name,
-                          assign_viewer):
-    """Assign roles to the STS service account that will be required to interact with the bucket.
-
-    Args:
-        sts_email: The email address for the STS service account
-        storage_client: The storage client object used to access GCS
-        project_name: The name of the project
-        bucket_name: The name of the bucket
-        assign_viewer: True if we should also assign the Object Viewer/LegacyReader roles
-    """
-
-    account = 'serviceAccount:' + sts_email
-    bucket = storage_client.bucket(bucket_name, project_name)
-    policy = bucket.get_iam_policy()
-    policy['roles/storage.legacyBucketWriter'].add(account)
-    if assign_viewer:
-        policy[iam.STORAGE_OBJECT_VIEWER_ROLE].add(account)
-        policy['roles/storage.legacyBucketReader'].add(account)
-
-    bucket.set_iam_policy(policy)
-
-
-def _remove_sts_iam_roles(sts_email, storage_client, bucket_name):
-    """Remove the roles that were assigned for the STS service account.
-
-    Args:
-        sts_email: The email address for the STS service account
-        storage_client: The storage client object used to access GCS
-        bucket_name: The name of the bucket
-    """
-
-    account = 'serviceAccount:' + sts_email
-    bucket = storage_client.bucket(bucket_name)
-    policy = bucket.get_iam_policy()
-    policy['roles/storage.legacyBucketWriter'].discard(account)
-    bucket.set_iam_policy(policy)
-
-
 def _add_target_project_to_kms_key(spinner, cloud_logger, config, kms_key_name):
     """Gives the service_account_email the Encrypter/Decrypter role for the given KMS key.
 
@@ -454,167 +545,6 @@ def _add_target_project_to_kms_key(spinner, cloud_logger, config, kms_key_name):
         spinner, cloud_logger,
         '{} {} added as Enrypter/Decrypter to key: {}'.format(
             _CHECKMARK, service_account_email, kms_key_name))
-
-
-def _assign_target_project_to_topic(spinner, cloud_logger, config, topic_name,
-                                    topic_project):
-    """Gives the service_account_email the Publisher role for the topic.
-
-    Args:
-        spinner: The spinner displayed in the console
-        cloud_logger: A GCP logging client instance
-        config: A Configuration object with all of the config values needed for the script to run
-        topic_name: The name of the topic that the target project should be assigned to
-        topic_project: The name of the project that the topic belongs to
-    """
-
-    client = pubsub.PublisherClient(
-        credentials=config.source_project_credentials)
-    topic_path = client.topic_path(topic_project, topic_name)  # pylint: disable=no-member
-    policy = client.get_iam_policy(topic_path)  # pylint: disable=no-member
-
-    service_account_email = config.target_storage_client.get_service_account_email()
-    policy.bindings.add(
-        role='roles/pubsub.publisher',
-        members=['serviceAccount:' + service_account_email])
-
-    client.set_iam_policy(topic_path, policy)  # pylint: disable=no-member
-
-    _write_spinner_and_log(
-        spinner, cloud_logger, '{} {} added as a Publisher to topic: {}'.format(
-            _CHECKMARK, service_account_email, topic_name))
-
-
-@retry(
-    retry_on_result=_retry_if_false,
-    wait_exponential_multiplier=10000,
-    wait_exponential_max=120000,
-    stop_max_attempt_number=10)
-def _run_and_wait_for_sts_job(sts_client, target_project, source_bucket_name,
-                              sink_bucket_name, cloud_logger,config,transfer_log_value):
-    """Kick off the STS job and wait for it to complete. Retry if it fails.
-
-    Args:
-        sts_client: The STS client object to be used
-        target_project: The name of the target project where the STS job will be created
-        source_bucket_name: The name of the bucket where the STS job will transfer from
-        sink_bucket_name: The name of the bucket where the STS job will transfer to
-        cloud_logger: A GCP logging client instance
-
-    Returns:
-        True if the STS job completed successfully, False if it failed for any reason
-    """
-
-    # Note that this routine is in a @retry decorator, so non-True exits
-    # and unhandled exceptions will trigger a retry.
-
-    msg = 'Moving from bucket {} to {}'.format(source_bucket_name,
-                                               sink_bucket_name)
-    _print_and_log(cloud_logger, msg)
-
-    spinner_text = 'Creating STS job'
-    cloud_logger.log_text(spinner_text)
-    with yaspin(text=spinner_text) as spinner:
-        sts_job_name = _execute_sts_job(sts_client, target_project,
-                                        source_bucket_name, sink_bucket_name,config,transfer_log_value)
-        spinner.ok(_CHECKMARK)
-
-    # Check every 10 seconds until STS job is complete
-    with yaspin(text='Checking STS job status') as spinner:
-        while True:
-            job_status = _check_sts_job(spinner, cloud_logger, sts_client,
-                                        target_project, sts_job_name)
-            if job_status != sts_job_status.StsJobStatus.in_progress:
-                break
-            sleep(10)
-
-    if job_status == sts_job_status.StsJobStatus.success:
-  
-        return True
-
-    # Execution will only reach this code if something went wrong with the STS job
-    _print_and_log(
-        cloud_logger,
-        'There was an unexpected failure with the STS job. You can view the'
-        ' details in the cloud console.')
-    _print_and_log(
-        cloud_logger,
-        'Waiting for a period of time and then trying again. If you choose to'
-        ' cancel this script, the buckets will need to be manually cleaned up.')
-    return False
-
-
-def _execute_sts_job(sts_client, target_project, source_bucket_name,
-                     sink_bucket_name,config,transfer_log_value):
-    """Start the STS job.
-
-    Args:
-        sts_client: The STS client object to be used
-        target_project: The name of the target project where the STS job will be created
-        source_bucket_name: The name of the bucket where the STS job will transfer from
-        sink_bucket_name: The name of the bucket where the STS job will transfer to
-
-    Returns:
-        The name of the STS job as a string
-    """
-
-    now = datetime.date.today()
-    if config.bucket_name == sink_bucket_name:
-        time_preserved = None
-    else:
-        if config.preserve_custom_time == None:
-            time_preserved = None
-
-        elif config.preserve_custom_time == "TIME_CREATED_PRESERVE_AS_CUSTOM_TIME":
-            time_preserved= config.preserve_custom_time
-
-        elif config.preserve_custom_time == "TIME_CREATED_SKIP":
-            time_preserved = config.preserve_custom_time
-        
-        elif config.preserve_custom_time == "TIME_CREATED_UNSPECIFIED":
-            time_preserved = config.preserve_custom_time
-
-        else:
-            msg = 'Time created value is not available'
-            raise SystemExit(msg)	
-    
-    transfer_job = {
-        'description':
-        'Move bucket {} to {} in project {}'.format(
-            source_bucket_name, sink_bucket_name, target_project),
-        'status': 'ENABLED',
-        'projectId': target_project,
-        'schedule': {
-            'scheduleStartDate': {
-                'day': now.day - 1,
-                'month': now.month,
-                'year': now.year
-            },
-            'scheduleEndDate': {
-                'day': now.day - 1,
-                'month': now.month,
-                'year': now.year
-            }
-        },
-        'transferSpec': {
-            'gcsDataSource': {
-                'bucketName': source_bucket_name
-            },
-            'gcsDataSink': {
-                'bucketName': sink_bucket_name
-            },
-            "transferOptions": {
-                "deleteObjectsFromSourceAfterTransfer": True,
-                "metadataOptions": {
-                    "timeCreated": time_preserved
-                }         
-            }
-        }
-    }
-    transfer_job["loggingConfig"]=transfer_log_value   
-    result = sts_client.transferJobs().create(body=transfer_job).execute(
-        num_retries=5)
-    return result['name']
 
 
 def _check_sts_job(spinner, cloud_logger, sts_client, target_project, job_name):
