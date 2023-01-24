@@ -141,7 +141,7 @@ def _reconcile_source_and_temp_datasets(cloud_logger, project_id, first_dataset,
         FROM `""" + project_id + "." + first_dataset + ".__TABLES__`"
     )
     results = query_job_first_dataset.result()
-    print("results = "+ results)
+    print("results = "+ results[0].table_count)
     
 def _create_target_dataset(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client):
     """Creates the temp dataset in the target project
