@@ -109,23 +109,26 @@ def _move_dataset(cloud_logger, project_id, source_dataset, bq_client, bq_dts_cl
     _print_and_log(cloud_logger, "2 Create temp dataset: {}".format(temp_dataset_name))
     target_temp_dataset = _create_target_dataset(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client)
     
-    _print_and_log(cloud_logger, "3 Run and wait for BQ DTS job")
+    _print_and_log(cloud_logger, "3 Run and wait for BQ DTS job - source to temp")
     _run_and_wait_for_bq_dts_job(bq_dts_client, project_id, source_dataset, temp_dataset_name, cloud_logger)
     
     _print_and_log(cloud_logger, "4 Reconcile datasets")
     _reconcile_datasets(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client)
     """
-    _delete_empty_source_bucket(cloud_logger, source_bucket)
+    _print_and_log(cloud_logger, "5 Delete source dataset: {}".format(source_dataset))
+    _delete_source_dataset(cloud_logger, source_dataset)
+    
+    _print_and_log(cloud_logger, "6 Recreate source dataset: {}".format(source_dataset))
     _recreate_source_bucket(cloud_logger, config, source_bucket_details)
-    _assign_sts_permissions_to_new_bucket(cloud_logger, bq_dts_account_email,
-                                          config)
-    _run_and_wait_for_sts_job(sts_client, config.target_project,
-                              config.temp_bucket_name, config.bucket_name,
-                              cloud_logger,config,transfer_log_value)
 
-    _delete_empty_temp_bucket(cloud_logger, target_temp_bucket)
-    _remove_sts_permissions(cloud_logger, bq_dts_account_email, config,
-                            config.bucket_name)
+    _print_and_log(cloud_logger, "7 Run and wait for BQ DTS job - temp to new source")
+    _run_and_wait_for_bq_dts_job(bq_dts_client, project_id, temp_dataset_name, source_dataset, cloud_logger)
+
+    _print_and_log(cloud_logger, "8 Reconcile datasets")
+    _reconcile_datasets(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client)
+    
+    _print_and_log(cloud_logger, "9 Delete temp dataset: {}".format(source_dataset))
+    _delete_source_dataset(cloud_logger, temp_dataset_name)
     """
 
 def _reconcile_datasets(cloud_logger, project_id, first_dataset, second_dataset, bq_client):
