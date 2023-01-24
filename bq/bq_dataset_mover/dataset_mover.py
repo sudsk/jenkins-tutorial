@@ -15,6 +15,7 @@ from google.api_core import iam as api_core_iam
 from google.cloud import exceptions
 from google.cloud import bigquery
 from google.cloud import logging
+from google.cloud import bigquery_datatransfer
 from googleapiclient import discovery
 from google.oauth2 import service_account
 
@@ -28,7 +29,7 @@ def main():
     """
     """Get passed in args and run either a test run or an actual move"""
     args = _get_parsed_args()
-    project_name = args.project_name
+    project_id = args.project_id
     dataset_name = args.dataset_name
     service_account_key = args.service_account_key
     
@@ -36,16 +37,16 @@ def main():
     sa_email = sa_credentials.service_account_email
     
     # Create the cloud logging client that will be passed to all other modules.
-    logging_client = logging.Client(credentials=sa_credentials, project = project_name)
+    logging_client = logging.Client(credentials=sa_credentials, project = project_id)
     cloud_logger = logging_client.logger("bq-dataset-mover")  
 
     cloud_logger.log_text("Starting BQ Dataset Mover")
-    _print_and_log(cloud_logger, 'Project: {}'.format(project_name))
+    _print_and_log(cloud_logger, 'Project: {}'.format(project_id))
     _print_and_log(cloud_logger, 'Dataset: {}'.format(dataset_name))
     _print_and_log(cloud_logger, 'Service Account: {}'.format(sa_email))
 
     bq_client = bigquery.Client(
-                credentials=sa_credentials, project=project_name)
+                credentials=sa_credentials, project=project_id)
     source_dataset = bq_client.get_dataset(  
         project_name+'.'+dataset_name)
 
@@ -60,12 +61,10 @@ def main():
     #source_bucket_details = bucket_details.BucketDetails(
     #    conf=parsed_args, source_bucket=source_bucket)
     #transfer_log_value=_check_log_values(cloud_logger, config)
+    
+    bq_dts_client = bigquery_datatransfer.DataTransferServiceClient()
 
-    #sts_client = discovery.build(
-    #    'storagetransfer', 'v1', credentials=config.target_project_credentials)
-
-    _move_bucket(cloud_logger, config, source_bucket, source_bucket_details,
-    #             sts_client,transfer_log_value)
+    _move_bucket(cloud_logger, project_id, source_dataset, bq_dts_client)
 
     cloud_logger.log_text('Completed BQ Dataset Mover')
 
@@ -82,90 +81,27 @@ def _get_parsed_args():
     parser.add_argument(
         '-d','--dataset_name', help='The name of the dataset to be moved.')
     parser.add_argument(
-        '-p','--project_name',
-        help='The project name that the dataset is currently in.')
+        '-p','--project_id',
+        help='The project id that the dataset is currently in.')
     parser.add_argument(
         '-s','--service_account_key',
         help='The location for service account key json file from the project'
     )
     return parser.parse_args()
 
-def _check_log_values(cloud_logger,config):
-    log_action_list = ['COPY', 'DELETE', 'FIND']
-    log_states_list = ['SUCCEEDED', 'FAILED']	
-    log_action_final = []
-    log_states_final= []
-
-    if config.log_action and not(config.log_action_state):
-        log_action = config.log_action.split(",")
-        for ele in log_action:
-            if ele in log_action_list:
-                log_action_final.append(ele) 
-            else:
-                msg="Entered log action is incorrect'"
-                cloud_logger.log_text(msg)
-                with yaspin(text=msg) as spinner:      
-                    spinner.ok(_CHECKMARK)
-                raise Exception(msg)
-        transfer_log_value={"logActions": log_action_final}
-
-    elif not(config.log_action) and (config.log_action_state):
-        log_states = config.log_action_state.split(",")
-        for ele in log_states:
-            if ele in log_states_list:
-                log_states_final.append(ele) 
-            else:
-                msg="Entered log states is incorrect'"
-                cloud_logger.log_text(msg)
-                with yaspin(text=msg) as spinner:
-                    spinner.ok(_CHECKMARK)
-                raise Exception(msg)
-        transfer_log_value={"logActionStates": log_states_final}
-
-    elif (config.log_action) and (config.log_action_state):
-        log_action = config.log_action.split(",")
-        for ele in log_action:
-            if ele in log_action_list:
-                log_action_final.append(ele) 
-            else:
-                msg="Entered log action or log state is incorrect'"
-                cloud_logger.log_text(msg)
-                with yaspin(text=msg) as spinner:     
-                    spinner.ok(_CHECKMARK)
-                raise Exception(msg)
-        log_states = config.log_action_state.split(",")
-        for ele in log_states:
-            if ele in log_states_list:
-                log_states_final.append(ele) 
-            else:
-                msg="Entered log states is incorrect'"
-                cloud_logger.log_text(msg)
-                with yaspin(text=msg) as spinner:       
-                    spinner.ok(_CHECKMARK)
-                raise Exception(msg)
-        transfer_log_value={"logActions": log_action_final,
-    "logActionStates": log_states_final}
-
-    else:
-        transfer_log_value=None
-    return transfer_log_value
-
-def _move_dataset(cloud_logger, config, source_dataset, source_dataset_details,
-                 bqdts_client,transfer_log_value):
-    """Main method for doing a bucket move.
-
-    This flow does not include a rename, the target bucket will have the same
-    name as the source bucket.
+def _move_dataset(cloud_logger, project_id, source_dataset, bq_dts_client):
+    """Main method for doing a dataset move.
+    The target bucket will have the same name as the source bucket.
 
     Args:
         cloud_logger: A GCP logging client instance
-        config: A Configuration object with all of the config values needed for the script to run
-        source_bucket: The bucket object for the original source bucket in the source project
-        source_bucket_details: The details copied from the source bucket that is being moved
-        bqdts_client: The BQ DTS client object to be used
+        project_id: A Configuration object with all of the config values needed for the script to run
+        source_dataset: The bucket object for the original source bucket in the source project
+        bq_dts_client: The BQ DTS client object to be used
     """
-    target_temp_bucket = _create_target_bucket(
-        cloud_logger, config, source_bucket_details, config.temp_bucket_name)
+    target_temp_dataset = _create_target_dataset(
+        cloud_logger, project_id, source_dataset, temp_dataset_name=source_dataset+"_temp")
+    """
     bqdts_account_email = _assign_bqdts_permissions(cloud_logger, sts_client,
                                                 config, target_temp_bucket)
     _run_and_wait_for_sts_job(sts_client, config.target_project,
@@ -183,37 +119,28 @@ def _move_dataset(cloud_logger, config, source_dataset, source_dataset_details,
     _delete_empty_temp_bucket(cloud_logger, target_temp_bucket)
     _remove_sts_permissions(cloud_logger, sts_account_email, config,
                             config.bucket_name)
-
-def _create_target_bucket(cloud_logger, config, source_bucket_details,
-                          bucket_name):
-    """Creates either the temp bucket or target bucket (during rename) in the target project
+    """
+        
+def _create_target_dataset(cloud_logger, project_id, source_dataset, temp_dataset_name):
+    """Creates the temp dataset in the target project
 
     Args:
         cloud_logger: A GCP logging client instance
-        config: A Configuration object with all of the config values needed for the script to run
-        source_bucket_details: The details copied from the source bucket that is being moved
-        bucket_name: The name of the bucket to create
+        project_id: A Configuration object with all of the config values needed for the script to run
+        source_dataset: The details copied from the source bucket that is being moved
+        temp_dataset_name: The name of the bucket to create
 
     Returns:
-        The bucket object that has been created in GCS
+        The dataset object that has been created in BQ
     """
 
-    if config.is_rename:
-        spinner_text = 'Creating target bucket {} in project {}'.format(
-            bucket_name, config.target_project)
-    else:
-        spinner_text = 'Creating temp target bucket {} in project {}'.format(
-            bucket_name, config.target_project)
-
-    cloud_logger.log_text(spinner_text)
-    with yaspin(text=spinner_text) as spinner:
-        target_bucket = _create_bucket(spinner, cloud_logger, config,
-                                       bucket_name, source_bucket_details)
-        _write_spinner_and_log(
-            spinner, cloud_logger,
-            'Bucket {} created in target project {}'.format(
-                bucket_name, config.target_project))
-        return target_bucket
+    cloud_logger.log_text('Creating temp dataset {} in project {}'.format(temp_dataset_name, project_id))
+    
+    target_dataset = _create_dataset(cloud_logger, project_id, temp_dataset_name)
+    
+    cloud_logger.log_text('Bucket {} created in target project {}'.format(bucket_name, config.target_project))
+    
+    return target_dataset
 
 
 def _assign_sts_permissions(cloud_logger, sts_client, config,
@@ -347,8 +274,8 @@ def _get_project_number(project_id, credentials):
     return project['projectNumber']
 
 
-def _create_bucket(spinner, cloud_logger, config, bucket_name,
-                   source_bucket_details):
+def _create_dataset (cloud_logger, config, bucket_name,
+                   source_dataset_details):
     """Creates a bucket and replicates all of the settings from source_bucket_details.
 
     Args:
@@ -405,23 +332,6 @@ def _create_bucket(spinner, cloud_logger, config, bucket_name,
         bucket.iam_configuration.uniform_bucket_level_access_enabled = True
         bucket.patch()
 
-    if source_bucket_details.default_obj_acl_entities:
-        new_default_obj_acl = _update_acl_entities(
-            config, source_bucket_details.default_obj_acl_entities)
-        bucket.default_object_acl.save(acl=new_default_obj_acl)
-        _write_spinner_and_log(
-            spinner, cloud_logger,
-            'Default Object ACLs successfully copied over from the source bucket'
-        )
-
-    if source_bucket_details.notifications:
-        _update_notifications(spinner, cloud_logger, config,
-                              source_bucket_details.notifications, bucket)
-        _write_spinner_and_log(
-            spinner, cloud_logger,
-            '{} Created {} new notifications for the bucket {}'.format(
-                _CHECKMARK, len(source_bucket_details.notifications),
-                bucket_name))
 
     return bucket
 
