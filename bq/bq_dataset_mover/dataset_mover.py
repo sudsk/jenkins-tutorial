@@ -6,7 +6,7 @@ from __future__ import division
 from __future__ import print_function
 import datetime
 import json
-from time import sleep
+from time import sleep, time
 from retrying import retry
 from yaspin import yaspin
 import argparse
