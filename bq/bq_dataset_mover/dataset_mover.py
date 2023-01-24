@@ -64,7 +64,7 @@ def main():
     
     bq_dts_client = bigquery_datatransfer.DataTransferServiceClient()
 
-    _move_dataset(cloud_logger, project_id, source_dataset, bq_client, bq_dts_client)
+    _move_dataset(cloud_logger, project_id, dataset_name, bq_client, bq_dts_client)
 
     cloud_logger.log_text('Completed BQ Dataset Mover')
 
