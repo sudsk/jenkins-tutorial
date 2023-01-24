@@ -205,7 +205,7 @@ def _execute_bq_dts_job(bq_dts_client, project_id, source_dataset, temp_dataset_
             "source_project_id": source_project_id,
             "source_dataset_id": source_dataset_id,
         },
-        'schedule_options'= {
+        schedule_options={
             'disable_auto_scheduling': True
         }
     )
