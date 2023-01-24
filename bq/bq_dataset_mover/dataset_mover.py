@@ -48,7 +48,7 @@ def main():
     bq_client = bigquery.Client(
                 credentials=sa_credentials, project=project_id)
     source_dataset = bq_client.get_dataset(  
-        project_name+'.'+dataset_name)
+        project_id+'.'+dataset_name)
 
     if source_dataset is None:
         msg = 'The source dataset does not exist, so we cannot continue'
@@ -64,7 +64,7 @@ def main():
     
     bq_dts_client = bigquery_datatransfer.DataTransferServiceClient()
 
-    _move_bucket(cloud_logger, project_id, source_dataset, bq_dts_client)
+    _move_bucket(cloud_logger, project_id, source_dataset, bq_client, bq_dts_client)
 
     cloud_logger.log_text('Completed BQ Dataset Mover')
 
@@ -89,7 +89,7 @@ def _get_parsed_args():
     )
     return parser.parse_args()
 
-def _move_dataset(cloud_logger, project_id, source_dataset, bq_dts_client):
+def _move_dataset(cloud_logger, project_id, source_dataset, bq_client, bq_dts_client):
     """Main method for doing a dataset move.
     The target bucket will have the same name as the source bucket.
 
@@ -100,9 +100,9 @@ def _move_dataset(cloud_logger, project_id, source_dataset, bq_dts_client):
         bq_dts_client: The BQ DTS client object to be used
     """
     target_temp_dataset = _create_target_dataset(
-        cloud_logger, project_id, source_dataset, temp_dataset_name=source_dataset+"_temp")
+        cloud_logger, project_id, source_dataset, temp_dataset_name=source_dataset+"_temp", bq_client)
     """
-    bqdts_account_email = _assign_bqdts_permissions(cloud_logger, sts_client,
+    bq_dts_account_email = _assign_bqdts_permissions(cloud_logger, sts_client,
                                                 config, target_temp_bucket)
     _run_and_wait_for_sts_job(sts_client, config.target_project,
                               config.bucket_name, config.temp_bucket_name,
@@ -110,18 +110,18 @@ def _move_dataset(cloud_logger, project_id, source_dataset, bq_dts_client):
 
     _delete_empty_source_bucket(cloud_logger, source_bucket)
     _recreate_source_bucket(cloud_logger, config, source_bucket_details)
-    _assign_sts_permissions_to_new_bucket(cloud_logger, sts_account_email,
+    _assign_sts_permissions_to_new_bucket(cloud_logger, bq_dts_account_email,
                                           config)
     _run_and_wait_for_sts_job(sts_client, config.target_project,
                               config.temp_bucket_name, config.bucket_name,
                               cloud_logger,config,transfer_log_value)
 
     _delete_empty_temp_bucket(cloud_logger, target_temp_bucket)
-    _remove_sts_permissions(cloud_logger, sts_account_email, config,
+    _remove_sts_permissions(cloud_logger, bq_dts_account_email, config,
                             config.bucket_name)
     """
         
-def _create_target_dataset(cloud_logger, project_id, source_dataset, temp_dataset_name):
+def _create_target_dataset(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client):
     """Creates the temp dataset in the target project
 
     Args:
@@ -136,9 +136,9 @@ def _create_target_dataset(cloud_logger, project_id, source_dataset, temp_datase
 
     cloud_logger.log_text('Creating temp dataset {} in project {}'.format(temp_dataset_name, project_id))
     
-    target_dataset = _create_dataset(cloud_logger, project_id, temp_dataset_name)
+    target_dataset = _create_dataset(cloud_logger, project_id, temp_dataset_name, bq_client)
     
-    cloud_logger.log_text('Bucket {} created in target project {}'.format(bucket_name, config.target_project))
+    cloud_logger.log_text('Dataset {} created in target project {}'.format(temp_dataset_name, project_id))
     
     return target_dataset
 
@@ -274,9 +274,9 @@ def _get_project_number(project_id, credentials):
     return project['projectNumber']
 
 
-def _create_dataset (cloud_logger, config, bucket_name,
-                   source_dataset_details):
-    """Creates a bucket and replicates all of the settings from source_bucket_details.
+def _create_dataset (cloud_logger, project_id, temp_dataset_name, bq_client)
+    #cloud_logger, config, bucket_name, source_dataset_details):
+    """Creates a dataset and replicates all of the settings from source_bucket_details.
 
     Args:
         spinner: The spinner displayed in the console
@@ -286,54 +286,23 @@ def _create_dataset (cloud_logger, config, bucket_name,
         source_bucket_details: The details copied from the source bucket that is being moved
 
     Returns:
-        The bucket object that has been created in GCS
+        The dataset object that has been created in GCS
     """
-
-    bucket = storage.Bucket(
-        client=config.target_storage_client, name=bucket_name)
-    bucket.location = source_bucket_details.location
-    bucket.storage_class = source_bucket_details.storage_class
-    bucket.requester_pays = source_bucket_details.requester_pays
-    bucket.cors = source_bucket_details.cors
-    bucket.labels = source_bucket_details.labels
-    bucket.lifecycle_rules = source_bucket_details.lifecycle_rules
-    bucket.versioning_enabled = source_bucket_details.versioning_enabled
-
-    if source_bucket_details.default_kms_key_name:
-        bucket.default_kms_key_name = source_bucket_details.default_kms_key_name
-        # The target project GCS service account must be given
-        # Encrypter/Decrypter permission for the key
-        _add_target_project_to_kms_key(
-            spinner, cloud_logger, config,
-            source_bucket_details.default_kms_key_name)
-
-    if source_bucket_details.logging:
-        bucket.enable_logging(source_bucket_details.logging['logBucket'],
-                              source_bucket_details.logging['logObjectPrefix'])
-
-    _create_bucket_api_call(spinner, cloud_logger, bucket)
-
-    if source_bucket_details.iam_policy:
-        _update_iam_policies(config, bucket, source_bucket_details)
-        _write_spinner_and_log(
-            spinner, cloud_logger,
-            'IAM policies successfully copied over from the source bucket')
     
+    dataset_id = project_id + "." temp_dataset_name
+
+    # Construct a full Dataset object to send to the API.
+    dataset = bq_client.Dataset(dataset_id)
+
+    # TODO(developer): Specify the geographic location where the dataset should reside.
+    dataset.location = "asia-east2"
+
+    # Send the dataset to the API for creation, with an explicit timeout.
+    # Raises google.api_core.exceptions.Conflict if the Dataset already exists within the project.
     
-    if source_bucket_details.acl_entities:
-        new_acl = _update_acl_entities(config,
-                                       source_bucket_details.acl_entities)
-        bucket.acl.save(acl=new_acl)
-        _write_spinner_and_log(
-            spinner, cloud_logger,
-            'ACLs successfully copied over from the source bucket')
-    else:
-        _print_and_log(cloud_logger,"setting target bucket to uniform level access")
-        bucket.iam_configuration.uniform_bucket_level_access_enabled = True
-        bucket.patch()
-
-
-    return bucket
+    dataset = client.create_dataset(dataset, timeout=30)  # Make an API request.
+    
+    return dataset
 
 
 def _retry_if_false(result):
