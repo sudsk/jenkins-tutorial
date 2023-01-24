@@ -136,9 +136,9 @@ def _reconcile_source_and_temp_datasets(cloud_logger, project_id, first_dataset,
     """
     cloud_logger.log_text('Query dataset {} in project {} for no of tables, total no of rows, and total size'.format(first_dataset, project_id))
     query_job_first_dataset = client.query(
-        "
+        """
         SELECT COUNT(table_id) as table_count, SUM(row_count) total_rows, SUM(size_bytes) AS total_size 
-        FROM `"+first_dataset+".__TABLES__`"
+        FROM `"+first_dataset+".__TABLES__`"""
     )
     results = query_job_first_dataset.result()
     print("results = "+ results)
