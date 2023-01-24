@@ -205,7 +205,7 @@ def _execute_bq_dts_job(bq_dts_client, project_id, source_dataset, temp_dataset_
             "source_dataset_id": source_dataset_id,
         },
     )
-    transfer_config = transfer_client.create_transfer_config(
+    transfer_config = bq_dts_client.create_transfer_config(
         parent=bq_dts_client.common_project_path(destination_project_id),
         transfer_config=transfer_config_dict,
     )
