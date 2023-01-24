@@ -62,7 +62,7 @@ def main():
     #    conf=parsed_args, source_bucket=source_bucket)
     #transfer_log_value=_check_log_values(cloud_logger, config)
     
-    bq_dts_client = bigquery_datatransfer.DataTransferServiceClient()
+    bq_dts_client = bigquery_datatransfer.DataTransferServiceClient(credentials=sa_credentials, project = project_id)
 
     _move_dataset(cloud_logger, project_id, dataset_name, bq_client, bq_dts_client)
 
