@@ -219,7 +219,7 @@ def _run_and_wait_for_bq_dts_job (bq_dts_client, project_id, source_dataset, tem
     # Note that this routine is in a @retry decorator, so non-True exits
     # and unhandled exceptions will trigger a retry.
 
-    _print_and_log(cloud_logger,'Creating BQ DTS job for moving data from dataset {} to {}'.format(source_dataset, temp_dataset_name))')
+    _print_and_log(cloud_logger,'Creating BQ DTS job for moving data from dataset {} to {}'.format(source_dataset, temp_dataset_name))
     bq_dts_run_name = _execute_bq_dts_job(bq_dts_client, project_id,source_dataset, temp_dataset_name, cloud_logger)
     
     _print_and_log(cloud_logger,"bq_dts_run_name: {}".format(bq_dts_run_name))
