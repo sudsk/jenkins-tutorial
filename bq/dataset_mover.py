@@ -375,7 +375,7 @@ def _create_dataset (cloud_logger, project_id, temp_dataset_name, source_dataset
     dataset.default_partition_expiration_ms = source_dataset_details.default_partition_expiration_ms
     dataset.default_table_expiration_ms = source_dataset_details.default_table_expiration_ms
     dataset.description = source_dataset_details.description
-    dataset.etag = source_dataset_details.etag
+    #dataset.etag = source_dataset_details.etag
     dataset.friendly_name = source_dataset_details.friendly_name
     #dataset.full_dataset_id = source_dataset.full_dataset_id
     dataset.labels = source_dataset_details.labels
