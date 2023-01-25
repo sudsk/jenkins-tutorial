@@ -295,8 +295,10 @@ def _delete_dataset(cloud_logger, project_id, source_dataset, bq_client):
         source_bucket: The bucket object for the original source bucket in the source project
     """
 
-     _print_and_log(cloud_logger,'Deleting dataset: {}.'.format(source_dataset))
+    _print_and_log(cloud_logger,'Deleting dataset: {}.'.format(source_dataset))
+        
     dataset_id = project_id + "." + source_dataset
+    
     bq_client.delete_dataset(dataset_id, delete_contents=True, not_found_ok=True)  # Make an API request.
 
      _print_and_log(cloud_logger,"Deleted dataset {}.".format(dataset_id))
