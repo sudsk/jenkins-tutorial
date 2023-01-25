@@ -235,7 +235,7 @@ def _run_and_wait_for_bq_dts_job (bq_dts_client, project_id, source_dataset, tem
     while True:
         transfer_run = bq_dts_client.get_transfer_run({"name": bq_dts_run_name})
         state = transfer_run.state
-        if state != TransferState.PENDING and state != TransferState.RUNNING:
+        if state != bigquery_datatransfer_v1.types.TransferState.PENDING and state != bigquery_datatransfer_v1.types.TransferState.RUNNING:
             break
         sleep(10)
 
