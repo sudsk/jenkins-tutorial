@@ -301,7 +301,7 @@ def _delete_dataset(cloud_logger, project_id, source_dataset, bq_client):
     
     bq_client.delete_dataset(dataset_id, delete_contents=True, not_found_ok=True)  # Make an API request.
 
-     _print_and_log(cloud_logger,"Deleted dataset {}.".format(dataset_id))
+    _print_and_log(cloud_logger,"Deleted dataset {}.".format(dataset_id))
 
 def _recreate_source_bucket(cloud_logger, config, source_bucket_details):
     """Now that the original source bucket is deleted, re-create it in the target project
