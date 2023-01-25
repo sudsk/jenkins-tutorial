@@ -369,7 +369,7 @@ def _create_dataset (cloud_logger, project_id, temp_dataset_name, source_dataset
     dataset = bigquery.Dataset(dataset_id)
 
     dataset.access_entries = source_dataset_details.access_entries
-    dataset.created = source_dataset_details.created
+    #dataset.created = source_dataset_details.created
     #dataset.dataset_id = source_dataset.dataset_id
     dataset.default_encryption_configuration = source_dataset_details.default_encryption_configuration
     dataset.default_partition_expiration_ms = source_dataset_details.default_partition_expiration_ms
