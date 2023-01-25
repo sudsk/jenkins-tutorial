@@ -229,17 +229,17 @@ def _run_and_wait_for_bq_dts_job (bq_dts_client, project_id, source_dataset, tem
     _print_and_log(cloud_logger,'Creating BQ DTS job')
     bq_dts_run_name = _execute_bq_dts_job(bq_dts_client, project_id,source_dataset, temp_dataset_name, cloud_logger)
     
-    print("bq_dts_job_name: {}".format(bq_dts_run_name))
+    print("bq_dts_run_name: {}".format(bq_dts_run_name))
 
     # Check every 10 seconds until DTS job is complete
     while True:
-        transfer_run = bq_dts_client.get_transfer_run(bq_dts_run_name)
+        transfer_run = bq_dts_client.get_transfer_run({"name": bq_dts_run_name})
         state = transfer_run.state
-        if state != 2 and state != 3:
+        if state != TransferState.PENDING and state != TransferState.RUNNING:
             break
         sleep(10)
 
-    if state == 4:
+    if state == TransferState.SUCCEEDED:
         return True
 
     # Execution will only reach this code if something went wrong with the BQ DTS job
