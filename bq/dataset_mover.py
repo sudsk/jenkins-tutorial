@@ -225,11 +225,10 @@ def _run_and_wait_for_bq_dts_job (bq_dts_client, project_id, source_dataset, tem
     # Note that this routine is in a @retry decorator, so non-True exits
     # and unhandled exceptions will trigger a retry.
 
-    _print_and_log(cloud_logger,'Moving from dataset {} to {}'.format(source_dataset, temp_dataset_name))
-    _print_and_log(cloud_logger,'Creating BQ DTS job')
+    _print_and_log(cloud_logger,'Creating BQ DTS job for moving data from dataset {} to {}'.format(source_dataset, temp_dataset_name))')
     bq_dts_run_name = _execute_bq_dts_job(bq_dts_client, project_id,source_dataset, temp_dataset_name, cloud_logger)
     
-    print("bq_dts_run_name: {}".format(bq_dts_run_name))
+    _print_and_log(cloud_logger,"bq_dts_run_name: {}".format(bq_dts_run_name))
 
     # Check every 10 seconds until DTS job is complete
     while True:
@@ -240,11 +239,12 @@ def _run_and_wait_for_bq_dts_job (bq_dts_client, project_id, source_dataset, tem
         sleep(10)
 
     if state == bigquery_datatransfer_v1.types.TransferState.SUCCEEDED:
+        _print_and_log(cloud_logger,"BQ DTS job successfully completed")
         return True
 
     # Execution will only reach this code if something went wrong with the BQ DTS job
-    cloud_logger('There was an unexpected failure with the BQ DTS job. You can view the details in the cloud console.')
-    cloud_logger('Waiting for a period of time and then trying again. If you choose to cancel this script, the buckets will need to be manually cleaned up.')
+    _print_and_log(cloud_logger,'There was an unexpected failure with the BQ DTS job. You can view the details in the cloud console.')
+    _print_and_log(cloud_logger,'Waiting for a period of time and then trying again. If you choose to cancel this script, the buckets will need to be manually cleaned up.')
     return False
 
 
