@@ -41,7 +41,7 @@ def main():
     logging_client = logging.Client(credentials=sa_credentials, project = project_id)
     cloud_logger = logging_client.logger("bq-dataset-mover")  
 
-    _print_and_log(cloud_logger, "Starting BQ Dataset Mover")
+    _print_and_log(cloud_logger, "1 Starting BQ Dataset Mover")
     _print_and_log(cloud_logger, 'Project: {}'.format(project_id))
     _print_and_log(cloud_logger, 'Dataset: {}'.format(dataset_name))
     _print_and_log(cloud_logger, 'Service Account: {}'.format(sa_email))
@@ -49,7 +49,7 @@ def main():
     bq_client = bigquery.Client(
                 credentials=sa_credentials, project=project_id)
     
-    _print_and_log(cloud_logger, "1 Get source dataset details: {}".format(dataset_name))
+    _print_and_log(cloud_logger, "2 Get source dataset details: {}".format(dataset_name))
     source_dataset = bq_client.get_dataset(project_id +'.' + dataset_name)
 
     if source_dataset is None:
@@ -70,7 +70,7 @@ def main():
 
     _move_dataset(cloud_logger, project_id, dataset_name, bq_client, bq_dts_client)
 
-    _print_and_log(cloud_logger, 'Completed BQ Dataset Mover')
+    _print_and_log(cloud_logger, '11 Completed BQ Dataset Mover')
 
     
 def _get_parsed_args():
@@ -106,28 +106,28 @@ def _move_dataset(cloud_logger, project_id, source_dataset, bq_client, bq_dts_cl
     
     temp_dataset_name = source_dataset + "_temp"
     
-    _print_and_log(cloud_logger, "2 Create temp dataset: {}".format(temp_dataset_name))
+    _print_and_log(cloud_logger, "3 Create temp dataset: {}".format(temp_dataset_name))
     target_temp_dataset = _create_target_dataset(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client)
     
-    _print_and_log(cloud_logger, "3 Run and wait for BQ DTS job - source to temp")
+    _print_and_log(cloud_logger, "4 Run and wait for BQ DTS job - source to temp")
     _run_and_wait_for_bq_dts_job(bq_dts_client, project_id, source_dataset, temp_dataset_name, cloud_logger)
     
-    _print_and_log(cloud_logger, "4 Reconcile datasets")
+    _print_and_log(cloud_logger, "5 Reconcile datasets")
     _reconcile_datasets(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client)
     """
-    _print_and_log(cloud_logger, "5 Delete source dataset: {}".format(source_dataset))
+    _print_and_log(cloud_logger, "6 Delete source dataset: {}".format(source_dataset))
     _delete_source_dataset(cloud_logger, source_dataset)
     
-    _print_and_log(cloud_logger, "6 Recreate source dataset: {}".format(source_dataset))
+    _print_and_log(cloud_logger, "7 Recreate source dataset: {}".format(source_dataset))
     _recreate_source_bucket(cloud_logger, config, source_bucket_details)
 
-    _print_and_log(cloud_logger, "7 Run and wait for BQ DTS job - temp to new source")
+    _print_and_log(cloud_logger, "8 Run and wait for BQ DTS job - temp to new source")
     _run_and_wait_for_bq_dts_job(bq_dts_client, project_id, temp_dataset_name, source_dataset, cloud_logger)
 
-    _print_and_log(cloud_logger, "8 Reconcile datasets")
+    _print_and_log(cloud_logger, "9 Reconcile datasets")
     _reconcile_datasets(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client)
     
-    _print_and_log(cloud_logger, "9 Delete temp dataset: {}".format(source_dataset))
+    _print_and_log(cloud_logger, "10 Delete temp dataset: {}".format(source_dataset))
     _delete_source_dataset(cloud_logger, temp_dataset_name)
     """
 
