@@ -1,22 +1,16 @@
 #!/usr/bin/env python
 """Script to move a bucket, all settings and data from one project to another."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 import datetime
 import json
 from time import sleep, time
-from retrying import retry
-from yaspin import yaspin
 import argparse
 
-from google.api_core import iam as api_core_iam
-from google.cloud import exceptions
+#from google.cloud import exceptions
 from google.cloud import bigquery
 from google.cloud import logging
 from google.cloud import bigquery_datatransfer_v1
-from googleapiclient import discovery
+#from googleapiclient import discovery
 from google.oauth2 import service_account
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -68,7 +62,7 @@ def main():
     
     bq_dts_client = bigquery_datatransfer_v1.DataTransferServiceClient(credentials=sa_credentials)
 
-    _move_dataset(cloud_logger, project_id, dataset_name, bq_client, bq_dts_client)
+    _move_dataset(cloud_logger, project_id, dataset_name, source_dataset_details, bq_client, bq_dts_client)
 
     _print_and_log(cloud_logger, '11 Completed BQ Dataset Mover')
 
@@ -93,7 +87,7 @@ def _get_parsed_args():
     )
     return parser.parse_args()
 
-def _move_dataset(cloud_logger, project_id, source_dataset, bq_client, bq_dts_client):
+def _move_dataset(cloud_logger, project_id, source_dataset, source_dataset_details, bq_client, bq_dts_client):
     """Main method for doing a dataset move.
     The target bucket will have the same name as the source bucket.
 
@@ -107,7 +101,7 @@ def _move_dataset(cloud_logger, project_id, source_dataset, bq_client, bq_dts_cl
     temp_dataset_name = source_dataset + "_temp"
     
     _print_and_log(cloud_logger, "3 Create temp dataset: {}".format(temp_dataset_name))
-    target_temp_dataset = _create_target_dataset(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client)
+    target_temp_dataset = _create_target_dataset(cloud_logger, project_id, source_dataset, source_dataset_details, temp_dataset_name, bq_client)
     
     _print_and_log(cloud_logger, "4 Run and wait for BQ DTS job - source to temp")
     _run_and_wait_for_bq_dts_job(bq_dts_client, project_id, source_dataset, temp_dataset_name, cloud_logger)
@@ -116,7 +110,7 @@ def _move_dataset(cloud_logger, project_id, source_dataset, bq_client, bq_dts_cl
     _reconcile_datasets(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client)
     """
     _print_and_log(cloud_logger, "6 Delete source dataset: {}".format(source_dataset))
-    _delete_source_dataset(cloud_logger, source_dataset)
+    _delete_dataset(cloud_logger, project_id, source_dataset, bq_client)
     
     _print_and_log(cloud_logger, "7 Recreate source dataset: {}".format(source_dataset))
     _recreate_source_bucket(cloud_logger, config, source_bucket_details)
@@ -186,7 +180,7 @@ def _reconcile_datasets(cloud_logger, project_id, first_dataset, second_dataset,
         _print_and_log(cloud_logger,msg)
         raise SystemExit(msg)
     
-def _create_target_dataset(cloud_logger, project_id, source_dataset, temp_dataset_name, bq_client):
+def _create_target_dataset(cloud_logger, project_id, source_dataset, source_dataset_details, temp_dataset_name, bq_client):
     """Creates the temp dataset in the target project
 
     Args:
@@ -201,7 +195,7 @@ def _create_target_dataset(cloud_logger, project_id, source_dataset, temp_datase
 
     _print_and_log(cloud_logger,'Creating temp dataset {} in project {}'.format(temp_dataset_name, project_id))
     
-    target_dataset = _create_dataset(cloud_logger, project_id, temp_dataset_name, bq_client)
+    target_dataset = _create_dataset(cloud_logger, project_id, temp_dataset_name, source_dataset_details, bq_client)
     
     _print_and_log(cloud_logger,'Dataset {} created in target project {}'.format(temp_dataset_name, project_id))
     
@@ -293,7 +287,7 @@ def _execute_bq_dts_job(bq_dts_client, project_id, source_dataset, temp_dataset_
     
     return transfer_runs.runs[0].name
 
-def _delete_empty_source_bucket(cloud_logger, source_bucket):
+def _delete_dataset(cloud_logger, project_id, source_dataset, bq_client):
     """Delete the empty source bucket
 
     Args:
@@ -301,11 +295,11 @@ def _delete_empty_source_bucket(cloud_logger, source_bucket):
         source_bucket: The bucket object for the original source bucket in the source project
     """
 
-    spinner_text = 'Deleting empty source bucket'
-    cloud_logger.log_text(spinner_text)
-    with yaspin(text=spinner_text) as spinner:
-        source_bucket.delete()
-        spinner.ok(_CHECKMARK)
+     _print_and_log(cloud_logger,'Deleting dataset: {}.'.format(source_dataset))
+    dataset_id = project_id + "." + source_dataset
+    bq_client.delete_dataset(dataset_id, delete_contents=True, not_found_ok=True)  # Make an API request.
+
+     _print_and_log(cloud_logger,"Deleted dataset {}.".format(dataset_id))
 
 def _recreate_source_bucket(cloud_logger, config, source_bucket_details):
     """Now that the original source bucket is deleted, re-create it in the target project
@@ -352,7 +346,7 @@ def _get_project_number(project_id, credentials):
     project = crm.projects().get(projectId=project_id).execute(num_retries=5)  # pylint: disable=no-member
     return project['projectNumber']
 
-def _create_dataset (cloud_logger, project_id, temp_dataset_name, bq_client):
+def _create_dataset (cloud_logger, project_id, temp_dataset_name, source_dataset_details, bq_client):
     #cloud_logger, config, bucket_name, source_dataset_details):
     """Creates a dataset and replicates all of the settings from source_bucket_details.
 
@@ -372,7 +366,23 @@ def _create_dataset (cloud_logger, project_id, temp_dataset_name, bq_client):
     # Construct a full Dataset object to send to the API.
     dataset = bigquery.Dataset(dataset_id)
 
-    dataset.location = "asia-east2"
+    dataset.access_entries = source_dataset_details.access_entries
+    dataset.created = source_dataset_details.created
+    #dataset.dataset_id = source_dataset.dataset_id
+    dataset.default_encryption_configuration = source_dataset_details.default_encryption_configuration
+    dataset.default_partition_expiration_ms = source_dataset_details.default_partition_expiration_ms
+    dataset.default_table_expiration_ms = source_dataset_details.default_table_expiration_ms
+    dataset.description = source_dataset_details.description
+    dataset.etag = source_dataset_details.etag
+    dataset.friendly_name = source_dataset_details.friendly_name
+    #dataset.full_dataset_id = source_dataset.full_dataset_id
+    dataset.labels = source_dataset_details.labels
+    dataset.location = source_dataset_details.location
+    dataset.modified = source_dataset_details.modified
+    #dataset.path = source_dataset.path
+    dataset.project = source_dataset_details.project
+    #dataset.reference = source_dataset_details.reference
+    #dataset.self_link = source_dataset_details.self_link
 
     # Send the dataset to the API for creation, with an explicit timeout.
     # Raises google.api_core.exceptions.Conflict if the Dataset already exists within the project.
@@ -380,167 +390,6 @@ def _create_dataset (cloud_logger, project_id, temp_dataset_name, bq_client):
     dataset = bq_client.create_dataset(dataset, timeout=30)  # Make an API request.
     
     return dataset
-
-def _retry_if_false(result):
-    """Return True if we should retry because the function returned False"""
-    return result is False
-
-@retry(
-    retry_on_result=_retry_if_false,
-    wait_exponential_multiplier=4000,
-    wait_exponential_max=60000,
-    stop_max_attempt_number=5)
-def _create_bucket_api_call(spinner, cloud_logger, bucket):
-    """Calls the GCS api method to create the bucket.
-
-    The method will attempt to retry up to 5 times if the 503 ServiceUnavailable
-    exception is raised.
-
-    Args:
-        spinner: The spinner displayed in the console
-        cloud_logger: A GCP logging client instance
-        bucket: The bucket object to create
-
-    Returns:
-        True if the bucket was created, False if a ServiceUnavailable exception was raised
-
-    Raises:
-        google.cloud.exceptions.Conflict: The underlying Google Cloud api will raise this error if
-            the bucket already exists.
-    """
-
-    try:
-        bucket.create()
-    except exceptions.ServiceUnavailable:
-        _write_spinner_and_log(
-            spinner, cloud_logger, '503 Service Unavailable error returned.'
-            ' Retrying up to 5 times with exponential backoff.')
-        return False
-    return True
-
-def _update_iam_policies(config, bucket, source_bucket_details):
-    """Take the existing IAM, replace the source project number with the target project
-    number and then assign the IAM to the new bucket.
-
-    Args:
-        config: A Configuration object with all of the config values needed for the script to run
-        bucket: The bucket object to update the IAM policies for
-        source_bucket_details: The details copied from the source bucket that is being moved
-    """
-
-    policy = bucket.get_iam_policy()
-
-    # Update the original policy with the etag for the policy we just got so the update is
-    # associated with our get request to make sure no other update overwrites our change
-    source_bucket_details.iam_policy.etag = policy.etag
-    for role in source_bucket_details.iam_policy:
-        for member in source_bucket_details.iam_policy[role]:
-            # If a project level role was set, replace it with an identical one for the new project
-            if ':' + config.source_project in member:
-                new_member = member.replace(config.source_project,
-                                            config.target_project)
-                source_bucket_details.iam_policy[role].discard(member)
-                source_bucket_details.iam_policy[role].add(new_member)
-
-    # Give the target bucket all of the same policies as the source bucket, but with updated
-    # project roles
-    bucket.set_iam_policy(source_bucket_details.iam_policy)
-
-
-def _get_sts_iam_account_email(sts_client, project_id):
-    """Get the account email that the STS service will run under.
-
-    Args:
-        sts_client: The STS client object to be used
-        project_id: The id of the project
-
-    Returns:
-        The STS service account email as a string
-    """
-
-    result = sts_client.googleServiceAccounts().get(
-        projectId=project_id).execute(num_retries=5)
-    return result['accountEmail']
-
-def _add_target_project_to_kms_key(spinner, cloud_logger, config, kms_key_name):
-    """Gives the service_account_email the Encrypter/Decrypter role for the given KMS key.
-
-    Args:
-        spinner: The spinner displayed in the console
-        cloud_logger: A GCP logging client instance
-        config: A Configuration object with all of the config values needed for the script to run
-        kms_key_name: The name of the KMS key that the project should be given access to
-    """
-
-    kms_client = discovery.build(
-        'cloudkms', 'v1', credentials=config.source_project_credentials)
-
-    # Get the current IAM policy and add the new member to it.
-    crypto_keys = kms_client.projects().locations().keyRings().cryptoKeys()  # pylint: disable=no-member
-    policy_request = crypto_keys.getIamPolicy(resource=kms_key_name)
-    policy_response = policy_request.execute(num_retries=5)
-    bindings = []
-    if 'bindings' in policy_response.keys():
-        bindings = policy_response['bindings']
-    service_account_email = config.target_storage_client.get_service_account_email()
-    members = ['serviceAccount:' + service_account_email]
-    bindings.append({
-        'role': 'roles/cloudkms.cryptoKeyEncrypterDecrypter',
-        'members': members,
-    })
-    policy_response['bindings'] = bindings
-
-    # Set the new IAM Policy.
-    request = crypto_keys.setIamPolicy(
-        resource=kms_key_name, body={'policy': policy_response})
-    request.execute(num_retries=5)
-
-    _write_spinner_and_log(
-        spinner, cloud_logger,
-        '{} {} added as Enrypter/Decrypter to key: {}'.format(
-            _CHECKMARK, service_account_email, kms_key_name))
-
-
-def _check_sts_job(spinner, cloud_logger, sts_client, target_project, job_name):
-    """Check on the status of the STS job.
-
-    Args:
-        spinner: The spinner displayed in the console
-        cloud_logger: A GCP logging client instance
-        sts_client: The STS client object to be used
-        target_project: The name of the target project where the STS job will be created
-        job_name: The name of the STS job that was created
-
-    Returns:
-        The status of the job as an StsJobStatus enum
-    """
-
-    filter_string = (
-        '{{"project_id": "{project_id}", "job_names": ["{job_name}"]}}').format(
-            project_id=target_project, job_name=job_name)
-
-    result = sts_client.transferOperations().list(
-        name='transferOperations', filter=filter_string).execute(num_retries=5)
-
-    if result:
-        operation = result['operations'][0]
-        metadata = operation['metadata']
-        if operation.get('done'):
-            if metadata['status'] != 'SUCCESS':
-                spinner.fail('X')
-                return sts_job_status.StsJobStatus.failed
-
-            _print_sts_counters(spinner, cloud_logger, metadata['counters'],
-                                True)
-            spinner.ok(_CHECKMARK)
-            return sts_job_status.StsJobStatus.success
-        else:
-            # Update the status of the copy
-            if 'counters' in metadata:
-                _print_sts_counters(spinner, cloud_logger, metadata['counters'],
-                                    False)
-
-    return sts_job_status.StsJobStatus.in_progress
 
 def _print_and_log(cloud_logger, message):
     """Print the message and log it to the cloud.
