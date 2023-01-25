@@ -303,51 +303,6 @@ def _delete_dataset(cloud_logger, project_id, source_dataset, bq_client):
 
     _print_and_log(cloud_logger,"Deleted dataset {}.".format(dataset_id))
 
-def _recreate_source_bucket(cloud_logger, config, source_bucket_details):
-    """Now that the original source bucket is deleted, re-create it in the target project
-
-    Args:
-        cloud_logger: A GCP logging client instance
-        config: A Configuration object with all of the config values needed for the script to run
-        source_bucket_details: The details copied from the source bucket that is being moved
-    """
-
-    spinner_text = 'Re-creating source bucket in target project'
-    _print_and_log(cloud_logger,spinner_text)
-    with yaspin(text=spinner_text) as spinner:
-        _create_bucket(spinner, cloud_logger, config, config.bucket_name,
-                       source_bucket_details)
-        spinner.ok(_CHECKMARK)
-
-def _delete_empty_temp_bucket(cloud_logger, target_temp_bucket):
-    """Now that the temp bucket is empty, delete it
-
-    Args:
-        cloud_logger: A GCP logging client instance
-        target_temp_bucket: The GCS bucket object of the target temp bucket
-    """
-
-    spinner_text = 'Deleting empty temp bucket'
-    cloud_logger.log_text(spinner_text)
-    with yaspin(text=spinner_text) as spinner:
-        target_temp_bucket.delete()
-        spinner.ok(_CHECKMARK)
-
-def _get_project_number(project_id, credentials):
-    """Using the project id, get the unique project number for a project.
-
-    Args:
-        project_id: The id of the project
-        credentials: The credentials to use for accessing the project
-
-    Returns:
-        The project number as a string
-    """
-
-    crm = discovery.build('cloudresourcemanager', 'v1', credentials=credentials)
-    project = crm.projects().get(projectId=project_id).execute(num_retries=5)  # pylint: disable=no-member
-    return project['projectNumber']
-
 def _create_dataset (cloud_logger, project_id, temp_dataset_name, source_dataset_details, bq_client):
     #cloud_logger, config, bucket_name, source_dataset_details):
     """Creates a dataset and replicates all of the settings from source_bucket_details.
