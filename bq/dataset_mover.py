@@ -239,7 +239,7 @@ def _run_and_wait_for_bq_dts_job (bq_dts_client, project_id, source_dataset, tem
             break
         sleep(10)
 
-    if state == TransferState.SUCCEEDED:
+    if state == bigquery_datatransfer_v1.types.TransferState.SUCCEEDED:
         return True
 
     # Execution will only reach this code if something went wrong with the BQ DTS job
