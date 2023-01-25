@@ -380,7 +380,7 @@ def _create_dataset (cloud_logger, project_id, temp_dataset_name, source_dataset
     #dataset.full_dataset_id = source_dataset.full_dataset_id
     dataset.labels = source_dataset_details.labels
     dataset.location = source_dataset_details.location
-    dataset.modified = source_dataset_details.modified
+    #dataset.modified = source_dataset_details.modified
     #dataset.path = source_dataset.path
     dataset.project = source_dataset_details.project
     #dataset.reference = source_dataset_details.reference
