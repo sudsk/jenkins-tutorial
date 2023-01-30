@@ -1,9 +1,10 @@
 pipeline {
     agent any
+
     stages {
         stage('Hello') {
             steps {
-                echo 'Hello World - pipeline 3'
+                sh "echo ${bucket_name} ${proj_id}"
             }
         }
     }
