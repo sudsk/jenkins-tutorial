@@ -5,9 +5,8 @@ pipeline {
         stage('Start') {
             steps {
                 echo 'Hello'
-                writeFile file: 'buckets.txt', text: params.BUCKETS
                 script{
-                    def filePath = readFile "${WORKSPACE}/buckets.txt"  
+                    def filePath = readFile "${WORKSPACE}/bq/${BUCKETS}"  
                     def lines = filePath.readLines() 
                     def branches = [:]
                     for (line in lines) { 
