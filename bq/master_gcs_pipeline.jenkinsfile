@@ -6,7 +6,7 @@ pipeline {
             steps {
                 echo 'Hello'
                 script{
-                    def filePath = readFile "${WORKSPACE}/bq/${BUCKETS}"  
+                    def filePath = readFile "${WORKSPACE}/bq/${INPUTFILE}"  
                     def lines = filePath.readLines() 
                     def branches = [:]
                     for (line in lines) { 
