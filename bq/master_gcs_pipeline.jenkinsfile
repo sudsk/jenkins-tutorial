@@ -4,9 +4,9 @@ pipeline {
     {
         stage('Start') {
             steps {
-                echo 'Hello'
+                echo 'Starting'
                 script{
-                    def filePath = readFile "${WORKSPACE}/bq/${INPUTFILE}"  
+                    def filePath = readFile "${WORKSPACE}/${INPUTFILE}"  
                     def lines = filePath.readLines() 
                     def branches = [:]
                     for (line in lines) { 
