@@ -1,0 +1,20 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('BQ Dataset Mover') {
+            steps {
+                sh "python3.6 script1.py -p ${project_id} -d ${dataset_name}"
+            }
+            steps {
+                sh "python3.6 script2.py -p ${project_id} -d ${dataset_name}"
+            }
+            steps {
+                sh "python3.6 script3.py -p ${project_id} -d ${dataset_name}"
+            }            
+            steps {
+                sh "python3.6 script4.py -p ${project_id} -d ${dataset_name}"
+            }            
+        }
+    }
+}
