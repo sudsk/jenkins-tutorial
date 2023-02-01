@@ -1,0 +1,11 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Hello') {
+            steps {
+                sh "echo ${bucket_name} ${proj_id}"
+            }
+        }
+    }
+}
