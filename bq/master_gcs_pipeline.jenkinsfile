@@ -10,7 +10,8 @@ pipeline {
                     def lines = filePath.readLines() 
                     def branches = [:]
                     for (line in lines) { 
-                        String[3] str = line.split(',')
+                        def str = new String[3]
+                        str = line.split(',')
                         println(str.length)
                         if (str.length < 3) {
                             str[2] = "1"
