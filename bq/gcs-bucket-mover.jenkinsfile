@@ -2,10 +2,10 @@ pipeline {
     agent any
 
     stages {
-        when {
-            expression { params.DATA_TRANSFER_FLAG == '1' }
-        }
         stage('Hello') {
+            when {
+                expression { params.DATA_TRANSFER_FLAG == '1' }
+            }
             steps {
                 sh "echo ${bucket_name} ${proj_id}"
             }
