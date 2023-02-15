@@ -11,6 +11,7 @@ pipeline {
                     def branches = [:]
                     for (line in lines) { 
                         String[] str = line.split(',')
+                        println(str.length)
                         if (str.length < 3) {
                             str[2] = "1"
                         }
