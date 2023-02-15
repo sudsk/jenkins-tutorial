@@ -11,6 +11,9 @@ pipeline {
                     def branches = [:]
                     for (line in lines) { 
                         String[] str = line.split(',')
+                        if str.length < 3 {
+                            str[2] = "1"
+                        }
                         branches["branch-${str[0]}"] = {
                             build job: 'gcs-bucket-mover', parameters: [
                                 string(name: 'bucket_name', value:"${str[0]}"),
