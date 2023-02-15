@@ -2,6 +2,9 @@ pipeline {
     agent any
     stages {
         stage('Hello') {
+            when {
+                expression { params.DATA_TRANSFER_FLAG == '1' }
+            }
             steps {
                 echo 'Hello World - pipeline 3'
             }
