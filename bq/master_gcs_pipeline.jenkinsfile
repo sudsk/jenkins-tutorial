@@ -14,7 +14,8 @@ pipeline {
                         branches["branch-${str[0]}"] = {
                             build job: 'gcs-bucket-mover', parameters: [
                                 string(name: 'bucket_name', value:"${str[0]}"),
-                                string(name: 'proj_id', value:"${str[1]}")]
+                                string(name: 'proj_id', value:"${str[1]}"),
+                                string(name: 'DATA_TRANSFER_FLAG', value:"${str[2]}")]
                         }
                     }
                     parallel branches
