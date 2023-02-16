@@ -10,17 +10,16 @@ pipeline {
                     def lines = filePath.readLines() 
                     def branches = [:]
                     for (line in lines) { 
-                        def str = new String[3]
-                        str = line.split(',')
+                        String[] str = line.split(',')
                         println(str.length)
                         if (str.length < 3) {
-                            str[2] = "1"
+                            String data_xfr_flag = "1"
                         }
                         branches["branch-${str[0]}"] = {
                             build job: 'gcs-bucket-mover', parameters: [
                                 string(name: 'bucket_name', value:"${str[0]}"),
                                 string(name: 'proj_id', value:"${str[1]}"),
-                                string(name: 'DATA_TRANSFER_FLAG', value:"${str[2]}")]
+                                string(name: 'DATA_TRANSFER_FLAG', value:"${data_xfr_flag}")]
                         }
                     }
                     parallel branches
