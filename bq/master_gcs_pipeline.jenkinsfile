@@ -12,8 +12,11 @@ pipeline {
                     for (line in lines) { 
                         String[] str = line.split(',')
                         println(str.length)
+                        String data_xfr_flag
                         if (str.length < 3) {
-                            String data_xfr_flag = "1"
+                            data_xfr_flag = "1"
+                        } else {
+                            data_xfr_flag = str[2]
                         }
                         branches["branch-${str[0]}"] = {
                             build job: 'gcs-bucket-mover', parameters: [
