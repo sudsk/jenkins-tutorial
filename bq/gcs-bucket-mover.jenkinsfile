@@ -7,7 +7,7 @@ pipeline {
                 expression { params.DATA_TRANSFER_FLAG == '1' }
             }
             steps {
-                sh "echo ${bucket_name} ${proj_id}"
+                sh "echo ${bucket_name} ${proj_id} ${params.DATA_TRANSFER_FLAG}"
             }
         }
     }
